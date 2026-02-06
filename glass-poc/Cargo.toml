@@ -1,0 +1,21 @@
+[package]
+name = "glass-poc"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "glass-poc"
+path = "src/main.rs"
+
+[dependencies]
+glass-core = { path = "../glass-core" }
+wgpu = { workspace = true }
+windows = { workspace = true }
+raw-window-handle = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+pollster = { workspace = true }
+
+[features]
+default = []
+alloc-tracking = []

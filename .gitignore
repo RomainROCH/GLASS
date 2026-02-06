@@ -1,0 +1,14 @@
+.instructions/active-tasks.md
+.instructions-output/
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+vs_buildtools.exe

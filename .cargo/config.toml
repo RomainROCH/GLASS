@@ -1,0 +1,6 @@
+# GLASS — DX12-only wgpu backend
+# This ensures wgpu never attempts Vulkan/GL/Metal backends.
+
+[env]
+# Force wgpu to use DX12 backend only
+WGPU_BACKEND = "dx12"
