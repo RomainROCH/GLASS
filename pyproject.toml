@@ -1,0 +1,15 @@
+[project]
+name = "glass-ultimateoverlay"
+version = "0.1.0"
+description = "WGPU subtree sync utilities for GLASS Ultimate Overlay"
+requires-python = ">=3.11"
+dependencies = [
+    "gitpython>=3.1.40",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = []

@@ -1,0 +1,11 @@
+#!/bin/bash
+# GLASS Project - Python Shim (uv-powered)
+
+# Si on demande juste --version ou -V, utiliser uv python
+if [[ "$1" == "--version" ]] || [[ "$1" == "-V" ]]; then
+    uv python find
+    exit $?
+fi
+
+# Sinon, utiliser uv run avec l'environnement projet
+exec uv run "$@"
