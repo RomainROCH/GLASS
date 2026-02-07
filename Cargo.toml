@@ -5,6 +5,9 @@ members = [
     "glass-overlay",
     "glass-poc",
 ]
+exclude = [
+    "third_party/wgpu",
+]
 
 [workspace.package]
 edition = "2024"
@@ -50,5 +53,11 @@ env_logger = "0.11"
 # wgpu-hal 24.0.4 hardcodes Opaque alpha and DXGI_ALPHA_MODE_IGNORE.
 # Our fork in third_party/wgpu adds PreMultiplied support for
 # DirectComposition / SurfaceHandle / SwapChainPanel targets.
+#
+# wgpu-types must also be patched so that wgpu-hal (which resolves
+# wgpu-types via its workspace) and wgpu-core (from crates.io) use
+# the exact same wgpu-types crate — avoiding duplicate type errors.
 [patch.crates-io]
-wgpu-hal = { path = "third_party/wgpu/wgpu-hal" }
+wgpu-hal   = { path = "third_party/wgpu/wgpu-hal" }
+wgpu-types = { path = "third_party/wgpu/wgpu-types" }
+naga       = { path = "third_party/wgpu/naga" }

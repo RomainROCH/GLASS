@@ -28,7 +28,7 @@ GLASS_ORIGIN = "https://github.com/RomainROCH/GLASS-UltimateOverlay.git"
 WGPU_FORK_URL = "https://github.com/RomainROCH/wgpu.git"
 WGPU_REMOTE = "wgpu-fork"          # name of the git remote for the fork
 SUBTREE_PREFIX = "third_party/wgpu"
-DEFAULT_BRANCH = "glass-patch-v24.0.4"  # branch on the wgpu fork with our patches
+DEFAULT_BRANCH = "v24"              # branch on the wgpu fork to track (v24 series)
 # ─────────────────────────────────────────────────────────────────────────────
 
 

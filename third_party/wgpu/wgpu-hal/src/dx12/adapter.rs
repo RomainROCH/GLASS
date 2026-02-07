@@ -828,7 +828,15 @@ impl crate::Adapter for super::Adapter {
                 | crate::TextureUses::COPY_SRC
                 | crate::TextureUses::COPY_DST,
             present_modes,
-            composite_alpha_modes: vec![wgt::CompositeAlphaMode::Opaque],
+            composite_alpha_modes: match surface.target {
+                SurfaceTarget::Visual(_)
+                | SurfaceTarget::SurfaceHandle(_)
+                | SurfaceTarget::SwapChainPanel(_) => vec![
+                    wgt::CompositeAlphaMode::PreMultiplied,
+                    wgt::CompositeAlphaMode::Opaque,
+                ],
+                SurfaceTarget::WndHandle(_) => vec![wgt::CompositeAlphaMode::Opaque],
+            },
         })
     }
 
