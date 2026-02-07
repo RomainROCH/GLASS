@@ -9,6 +9,7 @@
 //! - [`test_mode`] — Test build mode constants (watermark, forced passthrough)
 
 pub mod compositor;
+pub mod config;
 pub mod overlay_window;
 pub mod renderer;
 pub mod test_mode;
