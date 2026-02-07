@@ -4,7 +4,6 @@
 //! HDR (scRGB / ST.2084). Falls back to explicit SDR path when HDR
 //! is unavailable or when `--force-sdr` is set.
 
-use glass_core::GlassError;
 use tracing::{info, warn};
 use windows::Win32::Graphics::Dxgi::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
