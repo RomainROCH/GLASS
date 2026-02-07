@@ -19,3 +19,4 @@ pollster = { workspace = true }
 [features]
 default = []
 alloc-tracking = []
+test_mode = []

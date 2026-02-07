@@ -13,7 +13,8 @@ use tracing::{info, info_span};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 
-/// WGSL shader for a green triangle at 50% alpha (premultiplied).
+/// WGSL shader for the PoC triangle.
+#[cfg(not(feature = "test_mode"))]
 const SHADER_SRC: &str = r#"
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -35,6 +36,53 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
     // Premultiplied alpha: green at 50% alpha
     // RGB = (0, 1, 0) * 0.5 = (0, 0.5, 0), A = 0.5
     out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
+    return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    return in.color;
+}
+"#;
+
+/// WGSL shader for PoC triangle + test-mode watermark block.
+#[cfg(feature = "test_mode")]
+const SHADER_SRC: &str = r#"
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) color: vec4<f32>,
+};
+
+@vertex
+fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
+    // First 3 vertices: PoC triangle
+    // Next 6 vertices: watermark rectangle (bottom-right)
+    var positions = array<vec2<f32>, 9>(
+        vec2<f32>( 0.0,  0.5),
+        vec2<f32>(-0.5, -0.5),
+        vec2<f32>( 0.5, -0.5),
+
+        // Watermark rectangle (two triangles)
+        vec2<f32>( 0.65, -0.75),
+        vec2<f32>( 0.95, -0.75),
+        vec2<f32>( 0.65, -0.95),
+
+        vec2<f32>( 0.65, -0.95),
+        vec2<f32>( 0.95, -0.75),
+        vec2<f32>( 0.95, -0.95),
+    );
+
+    var out: VertexOutput;
+    out.position = vec4<f32>(positions[idx], 0.0, 1.0);
+
+    if (idx < 3u) {
+        // Premultiplied alpha: green at 50% alpha
+        out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
+    } else {
+        // Watermark block (premultiplied white at 35% alpha)
+        out.color = vec4<f32>(0.35, 0.35, 0.35, 0.35);
+    }
+
     return out;
 }
 
@@ -264,7 +312,11 @@ impl Renderer {
             });
 
             rpass.set_pipeline(&self.pipeline);
-            rpass.draw(0..3, 0..1);
+            #[cfg(feature = "test_mode")]
+            let vertex_count = 9;
+            #[cfg(not(feature = "test_mode"))]
+            let vertex_count = 3;
+            rpass.draw(0..vertex_count, 0..1);
         }
         drop(_render_span);
 
