@@ -6,6 +6,8 @@
 //! - [`OverlayWindow`](overlay_window) — HWND creation, DPI, tray icon, message pump
 //! - [`Compositor`](compositor::Compositor) — DirectComposition device/target/visual
 //! - [`Renderer`](renderer::Renderer) — wgpu DX12 rendering backend
+//! - [`scene`] — Retained scene graph with dirty-flag tracking
+//! - [`text_renderer`] — Glyphon text rendering integration
 //! - [`config`] — Hot-reloadable RON/TOML configuration
 //! - [`hdr`] — HDR detection + SDR fallback
 //! - [`diagnostics`] — System diagnostics dump on errors
@@ -17,4 +19,6 @@ pub mod diagnostics;
 pub mod hdr;
 pub mod overlay_window;
 pub mod renderer;
+pub mod scene;
 pub mod test_mode;
+pub mod text_renderer;

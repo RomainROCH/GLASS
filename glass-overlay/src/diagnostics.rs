@@ -6,7 +6,6 @@
 use serde::Serialize;
 use std::path::Path;
 use tracing::{error, info};
-use windows::Win32::Foundation::*;
 use windows::Win32::Graphics::Dwm::*;
 use windows::Win32::Graphics::Dxgi::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
