@@ -11,6 +11,8 @@ pub enum GlassError {
     WindowCreation(String),
     /// HDR detection failed — falling back to SDR.
     HdrUnavailable(String),
+    /// Configuration loading or parsing failed.
+    ConfigError(String),
     /// Generic OS error with HRESULT.
     OsError(String),
 }
@@ -22,6 +24,7 @@ impl fmt::Display for GlassError {
             GlassError::WgpuInit(msg) => write!(f, "wgpu init failed: {msg}"),
             GlassError::WindowCreation(msg) => write!(f, "Window creation failed: {msg}"),
             GlassError::HdrUnavailable(msg) => write!(f, "HDR unavailable (SDR fallback): {msg}"),
+            GlassError::ConfigError(msg) => write!(f, "Config error: {msg}"),
             GlassError::OsError(msg) => write!(f, "OS error: {msg}"),
         }
     }

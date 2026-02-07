@@ -6,6 +6,7 @@
 mod alloc_tracker;
 
 use glass_overlay::compositor::Compositor;
+use glass_overlay::config::ConfigStore;
 use glass_overlay::overlay_window;
 use glass_overlay::renderer::Renderer;
 use tracing::{error, info};
@@ -39,6 +40,19 @@ fn main() {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     // DPI awareness — must be first
     overlay_window::set_dpi_awareness();
+
+    // Load config (creates default file if missing)
+    let config_store = ConfigStore::load("config.ron")?;
+    {
+        let cfg = config_store.get();
+        info!(
+            "Config: position=({:.0},{:.0}), size=({:.0}x{:.0}), opacity={:.2}",
+            cfg.position.x, cfg.position.y, cfg.size.width, cfg.size.height, cfg.opacity
+        );
+    }
+
+    // Start hot-reload watcher
+    config_store.watch()?;
 
     // Create the overlay HWND
     let hwnd = overlay_window::create_overlay_window()?;
