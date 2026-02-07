@@ -1,0 +1,14 @@
+// GLASS Overlay configuration (RON format)
+// Edit this file and save — changes are hot-reloaded automatically.
+//
+// Supported formats: .ron and .toml
+// Default path: config.ron (in working directory)
+(
+    position: (x: 20.0, y: 20.0),
+    size: (width: 360.0, height: 60.0),
+    opacity: 1.0,
+    colors: (
+        primary: (0.0, 0.0, 0.0, 0.6),     // semi-transparent black background
+        secondary: (1.0, 1.0, 1.0, 1.0),   // opaque white text
+    ),
+)
