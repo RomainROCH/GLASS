@@ -5,9 +5,13 @@
 //! `PreMultiplied` alpha mode.
 //!
 //! Retained rendering: draws once, re-renders only on explicit invalidation.
+//! Scene graph nodes and text are rendered via the [`TextEngine`] from
+//! [`crate::text_renderer`].
 
 use glass_core::GlassError;
 use crate::hdr;
+use crate::scene::{Color, RectProps, Scene, TextProps};
+use crate::text_renderer::TextEngine;
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use tracing::{info, info_span, warn};
@@ -100,6 +104,10 @@ pub struct Renderer {
     pipeline: wgpu::RenderPipeline,
     /// Active color pipeline name for diagnostics.
     color_pipeline: &'static str,
+    /// Retained scene graph.
+    scene: Scene,
+    /// Glyphon text rendering engine.
+    text_engine: TextEngine,
 }
 
 impl Renderer {
@@ -248,6 +256,29 @@ impl Renderer {
 
         info!("Render pipeline created");
 
+        let text_engine = TextEngine::new(&device, &queue, format);
+
+        let mut scene = Scene::new();
+
+        // In test mode, add watermark text nodes using the scene graph.
+        #[cfg(feature = "test_mode")]
+        {
+            use crate::test_mode;
+            let wm_x = (width as f32) * 0.55;
+            let mut wm_y = (height as f32) - 60.0;
+            for line in test_mode::WATERMARK_LINES {
+                scene.add_text(TextProps {
+                    x: wm_x,
+                    y: wm_y,
+                    text: (*line).to_string(),
+                    font_size: test_mode::WATERMARK_FONT_SIZE,
+                    color: Color::new(1.0, 1.0, 1.0, 0.35),
+                });
+                wm_y += test_mode::WATERMARK_FONT_SIZE * 1.25;
+            }
+            info!("Test mode: {} watermark text nodes added", test_mode::WATERMARK_LINES.len());
+        }
+
         Ok(Self {
             device,
             queue,
@@ -255,6 +286,8 @@ impl Renderer {
             surface_config,
             pipeline,
             color_pipeline,
+            scene,
+            text_engine,
         })
     }
 
@@ -270,8 +303,17 @@ impl Renderer {
         Ok(())
     }
 
-    /// Render one frame: clear to transparent, draw content.
+    /// Render one frame: clear to transparent, draw content + scene text.
     pub fn render(&mut self) -> Result<(), GlassError> {
+        // Prepare text engine with current scene
+        self.text_engine.prepare(
+            &self.device,
+            &self.queue,
+            &self.scene,
+            self.surface_config.width,
+            self.surface_config.height,
+        );
+
         let _acquire_span = info_span!("acquire").entered();
         let frame = self
             .surface
@@ -318,12 +360,16 @@ impl Renderer {
                 occlusion_query_set: None,
             });
 
+            // Draw PoC triangle(s)
             rpass.set_pipeline(&self.pipeline);
             #[cfg(feature = "test_mode")]
             let vertex_count = 9;
             #[cfg(not(feature = "test_mode"))]
             let vertex_count = 3;
             rpass.draw(0..vertex_count, 0..1);
+
+            // Draw scene text (watermark in test_mode, future HUD text)
+            self.text_engine.render(&mut rpass);
         }
         drop(_render_span);
 
@@ -332,6 +378,22 @@ impl Renderer {
         frame.present();
         drop(_present_span);
 
+        // Clear dirty flags after successful render
+        self.scene.clear_dirty();
+
         Ok(())
+    }
+
+    /// Get a mutable reference to the scene graph.
+    ///
+    /// External code can add/update/remove scene nodes. Changes will be
+    /// rendered on the next `render()` call.
+    pub fn scene_mut(&mut self) -> &mut Scene {
+        &mut self.scene
+    }
+
+    /// Get a read-only reference to the scene graph.
+    pub fn scene(&self) -> &Scene {
+        &self.scene
     }
 }
