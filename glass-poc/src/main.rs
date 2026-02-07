@@ -8,15 +8,21 @@ mod alloc_tracker;
 mod compositor;
 mod overlay_window;
 mod renderer;
+mod test_mode;
 
 use tracing::{error, info};
 
 fn main() {
     // Tracing / logging
+    #[cfg(feature = "test_mode")]
+    let default_filter = "trace";
+    #[cfg(not(feature = "test_mode"))]
+    let default_filter = "info";
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(default_filter)),
         )
         .init();
 

@@ -7,6 +7,7 @@
 //! System tray icon for clean exit (right-click → Quit).
 
 use crate::renderer::Renderer;
+use crate::test_mode;
 use std::mem;
 use tracing::{info, warn};
 use windows::Win32::Foundation::*;
@@ -98,6 +99,13 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
         // GDI surface for this alpha to affect.
         let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA);
 
+        // Set window title (with [MODE TEST] prefix in test_mode builds)
+        {
+            let title = format!("{}GLASS Overlay\0", test_mode::TITLE_PREFIX);
+            let title_wide: Vec<u16> = title.encode_utf16().collect();
+            let _ = SetWindowTextW(hwnd, windows::core::PCWSTR(title_wide.as_ptr()));
+        }
+
         // Now show the window (non-activating) so it doesn't steal focus.
         let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 
@@ -128,10 +136,10 @@ fn add_tray_icon(hwnd: HWND) {
             ..Default::default()
         };
 
-        // Tooltip: "GLASS Overlay — Right-click to quit"
-        let tip = "GLASS Overlay \u{2014} Right-click to quit\0";
+        // Tooltip: test-mode aware title
+        let tip = test_mode::TRAY_TOOLTIP;
         for (i, ch) in tip.encode_utf16().enumerate() {
-            if i >= nid.szTip.len() {
+            if i >= nid.szTip.len() - 1 {
                 break;
             }
             nid.szTip[i] = ch;
