@@ -5,6 +5,7 @@
 
 // ── Modules ──────────────────────────────────────────────────────────────────
 mod alloc_tracker;
+mod compositor;
 mod overlay_window;
 mod renderer;
 
@@ -40,9 +41,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let hwnd = overlay_window::create_overlay_window()?;
     info!("Overlay window created");
 
-    // Init wgpu DX12 + surface from HWND (Step 0.2)
-    let mut renderer = renderer::Renderer::new(hwnd)?;
+    // DirectComposition: creates device + target + visual
+    let dcomp = compositor::Compositor::new(hwnd)?;
+    info!("DirectComposition compositor ready");
+
+    // Init wgpu DX12 — binds swap chain to the DComp visual
+    let mut renderer = renderer::Renderer::new(dcomp.visual_handle(), hwnd)?;
     info!("wgpu DX12 renderer initialized");
+
+    // Commit DComp: makes the visual → swapchain binding take effect
+    dcomp.commit()?;
+    info!("DComp committed");
 
     // Initial render — green triangle (Step 0.3)
     renderer.render()?;

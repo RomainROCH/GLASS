@@ -12,3 +12,7 @@ Cargo.lock
 *.swp
 *.swo
 vs_buildtools.exe
+
+# Third-party: only track wgpu-hal (patched), ignore rest of wgpu clone
+third_party/wgpu/*
+!third_party/wgpu/wgpu-hal/

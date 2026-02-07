@@ -45,3 +45,10 @@ pollster = "0.4"
 # Logging
 log = "0.4"
 env_logger = "0.11"
+
+# ── Local patches ────────────────────────────────────────────
+# wgpu-hal 24.0.4 hardcodes Opaque alpha and DXGI_ALPHA_MODE_IGNORE.
+# Our fork in third_party/wgpu adds PreMultiplied support for
+# DirectComposition / SurfaceHandle / SwapChainPanel targets.
+[patch.crates-io]
+wgpu-hal = { path = "third_party/wgpu/wgpu-hal" }

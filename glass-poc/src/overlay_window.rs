@@ -1,7 +1,9 @@
 //! Overlay window creation and message pump.
 //!
-//! Creates a transparent, topmost, click-through, non-activatable HWND.
-//! Transparency via DWM composition (DwmExtendFrameIntoClientArea margins=-1).
+//! Creates a topmost, click-through, non-activatable HWND.
+//! Uses `WS_EX_LAYERED | WS_EX_TRANSPARENT` for input pass-through and
+//! `WS_EX_NOREDIRECTIONBITMAP` to suppress the GDI surface.
+//! All visual content comes from DirectComposition (see `compositor.rs`).
 //! System tray icon for clean exit (right-click → Quit).
 
 use crate::renderer::Renderer;
@@ -18,20 +20,6 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 const WM_TRAYICON: u32 = 0x8000 + 1; // WM_APP + 1
 const IDM_EXIT: usize = 1001;
 const TRAY_ICON_ID: u32 = 1;
-
-// DWM FFI — direct binding avoids feature flag issues with `windows` crate
-#[repr(C)]
-struct DwmMargins {
-    left: i32,
-    right: i32,
-    top: i32,
-    bottom: i32,
-}
-
-unsafe extern "system" {
-    #[link_name = "DwmExtendFrameIntoClientArea"]
-    fn DwmExtendFrameIntoClientArea(hwnd: HWND, margins: *const DwmMargins) -> windows::core::HRESULT;
-}
 
 /// Set PerMonitorAwareV2 DPI awareness. Must be called before any window creation.
 pub fn set_dpi_awareness() {
@@ -74,18 +62,25 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
         let screen_w = GetSystemMetrics(SM_CXSCREEN);
         let screen_h = GetSystemMetrics(SM_CYSCREEN);
 
-        // No WS_EX_LAYERED — DWM composition handles transparency via alpha channel.
-        // WS_EX_TRANSPARENT provides click-through (+ HTTRANSPARENT in wnd_proc).
+        // WS_EX_LAYERED + WS_EX_TRANSPARENT: the combination makes the
+        // Window Manager skip this HWND for all pointer hit-testing, providing
+        // full click-through regardless of alpha value.
+        // WS_EX_NOREDIRECTIONBITMAP: no GDI surface — all visual content
+        // comes from the DirectComposition visual (see compositor.rs).
         let ex_style = WS_EX_TOPMOST
             | WS_EX_TOOLWINDOW
             | WS_EX_NOACTIVATE
-            | WS_EX_TRANSPARENT;
+            | WS_EX_TRANSPARENT
+            | WS_EX_LAYERED
+            | WS_EX_NOREDIRECTIONBITMAP;
 
+        // Create without WS_VISIBLE — we show after SetLayeredWindowAttributes
+        // to avoid a flash of opaque GDI surface.
         let hwnd = CreateWindowExW(
             ex_style,
             class_name,
             windows::core::w!("GLASS Overlay"),
-            WS_POPUP | WS_VISIBLE,
+            WS_POPUP,
             0,
             0,
             screen_w,
@@ -97,20 +92,14 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
         )
         .map_err(|e| glass_core::GlassError::WindowCreation(format!("CreateWindowExW: {e}")))?;
 
-        // Extend DWM frame into client area for transparent composition.
-        // With margins=-1, the entire client area is DWM "glass".
-        // DWM reads the alpha channel from our framebuffer:
-        //   alpha=0 → transparent, alpha>0 → visible.
-        let margins = DwmMargins {
-            left: -1,
-            right: -1,
-            top: -1,
-            bottom: -1,
-        };
-        let hr = DwmExtendFrameIntoClientArea(hwnd, &margins);
-        if hr.is_err() {
-            warn!("DwmExtendFrameIntoClientArea failed: {:?}", hr);
-        }
+        // Activate the layered window.  alpha=255 keeps the DComp visual
+        // fully visible; input pass-through comes from WS_EX_TRANSPARENT,
+        // not from the alpha byte.  NOREDIRECTIONBITMAP means there is no
+        // GDI surface for this alpha to affect.
+        let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA);
+
+        // Now show the window (non-activating) so it doesn't steal focus.
+        let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 
         info!(
             "Overlay window created: {}x{}, HWND={:?}",

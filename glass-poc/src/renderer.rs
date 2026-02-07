@@ -1,46 +1,17 @@
 //! wgpu DX12 renderer — green triangle with premultiplied 50% alpha.
 //!
+//! Uses `SurfaceTarget::Visual` (DirectComposition) for true per-pixel
+//! alpha transparency. The composition swapchain supports `PreMultiplied`
+//! alpha mode, unlike the HWND-based swapchain which only supports `Opaque`.
+//!
 //! Retained rendering: draws once, re-renders only on explicit invalidation.
 
 use glass_core::GlassError;
-use raw_window_handle::{
-    HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, Win32WindowHandle,
-    WindowsDisplayHandle,
-};
-use std::num::NonZeroIsize;
+use std::ffi::c_void;
+use std::ptr::NonNull;
 use tracing::{info, info_span};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
-
-/// Wrapper to provide raw-window-handle traits for our HWND.
-struct HwndHolder {
-    hwnd: isize,
-}
-
-// SAFETY: HWND is a raw pointer but is only used on the main thread.
-// wgpu requires Send+Sync for WindowHandle.
-unsafe impl Send for HwndHolder {}
-unsafe impl Sync for HwndHolder {}
-
-impl HasWindowHandle for HwndHolder {
-    fn window_handle(
-        &self,
-    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
-        let handle = Win32WindowHandle::new(NonZeroIsize::new(self.hwnd).unwrap());
-        Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(RawWindowHandle::Win32(handle)) })
-    }
-}
-
-impl HasDisplayHandle for HwndHolder {
-    fn display_handle(
-        &self,
-    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
-        let handle = WindowsDisplayHandle::new();
-        Ok(unsafe {
-            raw_window_handle::DisplayHandle::borrow_raw(RawDisplayHandle::Windows(handle))
-        })
-    }
-}
 
 /// WGSL shader for a green triangle at 50% alpha (premultiplied).
 const SHADER_SRC: &str = r#"
@@ -82,8 +53,12 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Initialize wgpu DX12 renderer bound to the overlay HWND.
-    pub fn new(hwnd: HWND) -> Result<Self, GlassError> {
+    /// Initialize wgpu DX12 renderer bound to a DirectComposition visual.
+    ///
+    /// `visual`: pointer to `IDCompositionVisual` — wgpu will call
+    ///           `CreateSwapChainForComposition` and `SetContent`.
+    /// `hwnd`: the overlay window — used only for `GetClientRect` sizing.
+    pub fn new(visual: NonNull<c_void>, hwnd: HWND) -> Result<Self, GlassError> {
         let _span = info_span!("renderer_init").entered();
 
         // Get window client area size
@@ -104,13 +79,17 @@ impl Renderer {
             ..Default::default()
         });
 
-        // Create surface from HWND
-        let holder = HwndHolder {
-            hwnd: hwnd.0 as isize,
+        // Create surface from DirectComposition visual.
+        // Uses create_surface_unsafe with CompositionVisual target.
+        // SAFETY: visual is a valid IDCompositionVisual pointer owned by Compositor.
+        // wgpu internally calls CreateSwapChainForComposition + AddRef on the visual.
+        let surface = unsafe {
+            instance
+                .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CompositionVisual(
+                    visual.as_ptr(),
+                ))
+                .map_err(|e| GlassError::WgpuInit(format!("Surface creation failed: {e}")))?
         };
-        let surface = instance
-            .create_surface(holder)
-            .map_err(|e| GlassError::WgpuInit(format!("Surface creation failed: {e}")))?;
 
         // Request adapter
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
