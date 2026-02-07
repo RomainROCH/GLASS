@@ -1,8 +1,8 @@
-//! wgpu DX12 renderer — green triangle with premultiplied 50% alpha.
+//! wgpu DX12 renderer — premultiplied-alpha overlay rendering.
 //!
-//! Uses `SurfaceTarget::Visual` (DirectComposition) for true per-pixel
-//! alpha transparency. The composition swapchain supports `PreMultiplied`
-//! alpha mode, unlike the HWND-based swapchain which only supports `Opaque`.
+//! Uses `SurfaceTargetUnsafe::CompositionVisual` (DirectComposition) for true
+//! per-pixel alpha transparency. The composition swapchain supports
+//! `PreMultiplied` alpha mode.
 //!
 //! Retained rendering: draws once, re-renders only on explicit invalidation.
 
@@ -23,18 +23,15 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
-    // Triangle vertices in clip space
     var positions = array<vec2<f32>, 3>(
-        vec2<f32>( 0.0,  0.5),   // top center
-        vec2<f32>(-0.5, -0.5),   // bottom left
-        vec2<f32>( 0.5, -0.5),   // bottom right
+        vec2<f32>( 0.0,  0.5),
+        vec2<f32>(-0.5, -0.5),
+        vec2<f32>( 0.5, -0.5),
     );
 
     var out: VertexOutput;
     out.position = vec4<f32>(positions[idx], 0.0, 1.0);
-
-    // Premultiplied alpha: green at 50% alpha
-    // RGB = (0, 1, 0) * 0.5 = (0, 0.5, 0), A = 0.5
+    // Premultiplied alpha: green at 50%
     out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
     return out;
 }
@@ -55,18 +52,14 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
-    // First 3 vertices: PoC triangle
-    // Next 6 vertices: watermark rectangle (bottom-right)
     var positions = array<vec2<f32>, 9>(
         vec2<f32>( 0.0,  0.5),
         vec2<f32>(-0.5, -0.5),
         vec2<f32>( 0.5, -0.5),
-
         // Watermark rectangle (two triangles)
         vec2<f32>( 0.65, -0.75),
         vec2<f32>( 0.95, -0.75),
         vec2<f32>( 0.65, -0.95),
-
         vec2<f32>( 0.65, -0.95),
         vec2<f32>( 0.95, -0.75),
         vec2<f32>( 0.95, -0.95),
@@ -76,7 +69,6 @@ fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
     out.position = vec4<f32>(positions[idx], 0.0, 1.0);
 
     if (idx < 3u) {
-        // Premultiplied alpha: green at 50% alpha
         out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
     } else {
         // Watermark block (premultiplied white at 35% alpha)
@@ -92,6 +84,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+/// Low-level GPU backend wrapper for wgpu/DX12 draw submission.
+///
+/// Encapsulates GPU initialization, swapchain presentation, and rendering.
+/// All rendering goes through this struct.
+///
+/// # Thread Safety
+/// Not `Send`/`Sync` — must be used on the thread that created it.
 pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -101,15 +100,17 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Initialize wgpu DX12 renderer bound to a DirectComposition visual.
+    /// Initialize the wgpu DX12 renderer bound to a DirectComposition visual.
     ///
-    /// `visual`: pointer to `IDCompositionVisual` — wgpu will call
-    ///           `CreateSwapChainForComposition` and `SetContent`.
-    /// `hwnd`: the overlay window — used only for `GetClientRect` sizing.
+    /// # Arguments
+    /// * `visual` — pointer to `IDCompositionVisual` from [`Compositor::visual_handle`].
+    /// * `hwnd` — the overlay window; used only for `GetClientRect` sizing.
+    ///
+    /// # Errors
+    /// Returns [`GlassError::WgpuInit`] if adapter/device/surface creation fails.
     pub fn new(visual: NonNull<c_void>, hwnd: HWND) -> Result<Self, GlassError> {
         let _span = info_span!("renderer_init").entered();
 
-        // Get window client area size
         let (width, height) = unsafe {
             let mut rect = windows::Win32::Foundation::RECT::default();
             let _ = GetClientRect(hwnd, &mut rect);
@@ -121,16 +122,12 @@ impl Renderer {
 
         info!("Initializing wgpu DX12 renderer at {width}x{height}");
 
-        // Create wgpu instance — DX12 only
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::DX12,
             ..Default::default()
         });
 
-        // Create surface from DirectComposition visual.
-        // Uses create_surface_unsafe with CompositionVisual target.
         // SAFETY: visual is a valid IDCompositionVisual pointer owned by Compositor.
-        // wgpu internally calls CreateSwapChainForComposition + AddRef on the visual.
         let surface = unsafe {
             instance
                 .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CompositionVisual(
@@ -139,7 +136,6 @@ impl Renderer {
                 .map_err(|e| GlassError::WgpuInit(format!("Surface creation failed: {e}")))?
         };
 
-        // Request adapter
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::LowPower,
             compatible_surface: Some(&surface),
@@ -153,28 +149,24 @@ impl Renderer {
             adapter_info.name, adapter_info.backend
         );
 
-        // Request device
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
-                label: Some("GLASS PoC Device"),
+                label: Some("GLASS Device"),
                 ..Default::default()
             },
             None,
         ))
         .map_err(|e| GlassError::WgpuInit(format!("Device request failed: {e}")))?;
 
-        // Configure surface — use alpha mode for transparency
         let caps = surface.get_capabilities(&adapter);
         info!("Surface capabilities: formats={:?}, alpha_modes={:?}", caps.formats, caps.alpha_modes);
 
-        // Prefer Bgra8UnormSrgb, fall back to first available
         let format = if caps.formats.contains(&wgpu::TextureFormat::Bgra8UnormSrgb) {
             wgpu::TextureFormat::Bgra8UnormSrgb
         } else {
             caps.formats[0]
         };
 
-        // Prefer premultiplied alpha, fall back
         let alpha_mode = if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PreMultiplied) {
             wgpu::CompositeAlphaMode::PreMultiplied
         } else if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Auto) {
@@ -197,9 +189,8 @@ impl Renderer {
         };
         surface.configure(&device, &surface_config);
 
-        // Create shader + pipeline
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("GLASS Triangle Shader"),
+            label: Some("GLASS Shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER_SRC.into()),
         });
 
@@ -210,7 +201,7 @@ impl Renderer {
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("GLASS Triangle Pipeline"),
+            label: Some("GLASS Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -223,7 +214,6 @@ impl Renderer {
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format,
-                    // Premultiplied alpha blending
                     blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent {
                             src_factor: wgpu::BlendFactor::One,
@@ -264,13 +254,11 @@ impl Renderer {
     /// Handle window resize — reconfigure the surface.
     pub fn resize(&mut self) -> Result<(), GlassError> {
         let _span = info_span!("resize").entered();
-        // Re-query actual window size (we're fullscreen overlay so use screen metrics)
-        // For PoC, just reconfigure at current config size
         self.surface.configure(&self.device, &self.surface_config);
         Ok(())
     }
 
-    /// Render one frame: clear to transparent, draw green triangle.
+    /// Render one frame: clear to transparent, draw content.
     pub fn render(&mut self) -> Result<(), GlassError> {
         let _acquire_span = info_span!("acquire").entered();
         let frame = self
@@ -296,7 +284,6 @@ impl Renderer {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        // Clear to fully transparent
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.0,
                             g: 0.0,

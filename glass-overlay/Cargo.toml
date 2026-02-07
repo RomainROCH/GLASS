@@ -16,3 +16,4 @@ wgpu = { workspace = true }
 windows = { workspace = true }
 raw-window-handle = { workspace = true }
 tracing = { workspace = true }
+pollster = { workspace = true }

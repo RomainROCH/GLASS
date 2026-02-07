@@ -15,7 +15,9 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::DirectComposition::*;
 
 /// Owns the DirectComposition device, target, and visual.
-/// Must outlive the wgpu `Surface` that references the visual.
+///
+/// Must outlive the wgpu [`Surface`](wgpu::Surface) that references the visual.
+/// The visual pointer is passed to wgpu via [`visual_handle`](Self::visual_handle).
 pub struct Compositor {
     device: IDCompositionDevice,
     _target: IDCompositionTarget, // prevent drop
@@ -23,27 +25,24 @@ pub struct Compositor {
 }
 
 impl Compositor {
-    /// Create DirectComposition device + target + visual for the given HWND.
+    /// Create a DirectComposition device, target, and visual for `hwnd`.
+    ///
+    /// The target's root visual is set so wgpu can bind a swapchain to it.
     pub fn new(hwnd: HWND) -> Result<Self, GlassError> {
         unsafe {
-            // Create DComp device (None = default DXGI device)
             let device: IDCompositionDevice =
                 DCompositionCreateDevice(None).map_err(|e| {
                     GlassError::CompositionInit(format!("DCompositionCreateDevice: {e}"))
                 })?;
 
-            // Create composition target bound to our overlay HWND.
-            // topmost=true → visual renders above window content.
             let target = device.CreateTargetForHwnd(hwnd, true).map_err(|e| {
                 GlassError::CompositionInit(format!("CreateTargetForHwnd: {e}"))
             })?;
 
-            // Create visual — wgpu will set its content to the swap chain.
             let visual = device.CreateVisual().map_err(|e| {
                 GlassError::CompositionInit(format!("CreateVisual: {e}"))
             })?;
 
-            // Set visual as root of the composition target.
             target.SetRoot(&visual).map_err(|e| {
                 GlassError::CompositionInit(format!("SetRoot: {e}"))
             })?;
@@ -58,13 +57,13 @@ impl Compositor {
         }
     }
 
-    /// Get the visual pointer for `wgpu::SurfaceTarget::Visual`.
+    /// Get the visual pointer for [`wgpu::SurfaceTargetUnsafe::CompositionVisual`].
     pub fn visual_handle(&self) -> NonNull<c_void> {
         NonNull::new(self.visual.as_raw()).expect("IDCompositionVisual pointer is null")
     }
 
     /// Commit pending changes. Must be called after wgpu configures the surface
-    /// so the swap chain binding (SetContent) takes effect.
+    /// so the swapchain binding (`SetContent`) takes effect.
     pub fn commit(&self) -> Result<(), GlassError> {
         unsafe {
             self.device

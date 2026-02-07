@@ -1,15 +1,13 @@
-//! GLASS Phase 0 — Proof of Concept
+//! GLASS PoC — thin harness exercising `glass-overlay`.
 //!
 //! Proves: wgpu DX12 + transparent HWND + click-through = viable overlay.
-//! Constraints: < 500 LOC, no UI, no input beyond passthrough.
+//! All core logic lives in `glass-overlay`; this binary is a bootstrap shim.
 
-// ── Modules ──────────────────────────────────────────────────────────────────
 mod alloc_tracker;
-mod compositor;
-mod overlay_window;
-mod renderer;
-mod test_mode;
 
+use glass_overlay::compositor::Compositor;
+use glass_overlay::overlay_window;
+use glass_overlay::renderer::Renderer;
 use tracing::{error, info};
 
 fn main() {
@@ -32,7 +30,6 @@ fn main() {
 
     info!("GLASS PoC starting");
 
-    // Step 0.2 + 0.3 + 0.4: Create window, init wgpu, render triangle
     match run() {
         Ok(()) => info!("GLASS PoC exited cleanly"),
         Err(e) => error!("GLASS PoC fatal: {e}"),
@@ -40,30 +37,30 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    // DPI awareness — must be first (Step 0.2)
+    // DPI awareness — must be first
     overlay_window::set_dpi_awareness();
 
-    // Create the overlay HWND (Step 0.2 + 0.4)
+    // Create the overlay HWND
     let hwnd = overlay_window::create_overlay_window()?;
     info!("Overlay window created");
 
     // DirectComposition: creates device + target + visual
-    let dcomp = compositor::Compositor::new(hwnd)?;
+    let dcomp = Compositor::new(hwnd)?;
     info!("DirectComposition compositor ready");
 
     // Init wgpu DX12 — binds swap chain to the DComp visual
-    let mut renderer = renderer::Renderer::new(dcomp.visual_handle(), hwnd)?;
+    let mut renderer = Renderer::new(dcomp.visual_handle(), hwnd)?;
     info!("wgpu DX12 renderer initialized");
 
     // Commit DComp: makes the visual → swapchain binding take effect
     dcomp.commit()?;
     info!("DComp committed");
 
-    // Initial render — green triangle (Step 0.3)
+    // Initial render
     renderer.render()?;
     info!("Initial frame rendered");
 
-    // Message loop — retained: only re-render on WM_PAINT
+    // Message loop — retained: only re-render on WM_PAINT / WM_SIZE
     overlay_window::run_message_loop(&mut renderer);
 
     Ok(())

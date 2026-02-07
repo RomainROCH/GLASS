@@ -1,10 +1,10 @@
 //! Overlay window creation and message pump.
 //!
-//! Creates a topmost, click-through, non-activatable HWND.
-//! Uses `WS_EX_LAYERED | WS_EX_TRANSPARENT` for input pass-through and
-//! `WS_EX_NOREDIRECTIONBITMAP` to suppress the GDI surface.
-//! All visual content comes from DirectComposition (see `compositor.rs`).
-//! System tray icon for clean exit (right-click → Quit).
+//! Creates a topmost, click-through, non-activatable HWND using
+//! `WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOREDIRECTIONBITMAP`.
+//! All visual content comes from DirectComposition (see [`Compositor`]).
+//!
+//! System tray icon provides a clean exit (right-click → Quit).
 
 use crate::renderer::Renderer;
 use crate::test_mode;
@@ -22,7 +22,10 @@ const WM_TRAYICON: u32 = 0x8000 + 1; // WM_APP + 1
 const IDM_EXIT: usize = 1001;
 const TRAY_ICON_ID: u32 = 1;
 
-/// Set PerMonitorAwareV2 DPI awareness. Must be called before any window creation.
+/// Set PerMonitorAwareV2 DPI awareness.
+///
+/// **Must** be called before any window creation. Calling after window
+/// creation is undefined behaviour on Windows.
 pub fn set_dpi_awareness() {
     unsafe {
         let result = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -34,7 +37,11 @@ pub fn set_dpi_awareness() {
     }
 }
 
-/// Creates the overlay HWND with required styles.
+/// Creates the overlay HWND with all required extended window styles.
+///
+/// The window is fullscreen, click-through, topmost, tool-window (no alt-tab),
+/// and uses `WS_EX_NOREDIRECTIONBITMAP` so the GDI surface is suppressed.
+/// A system tray icon is added for clean exit.
 pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
     unsafe {
         let hinstance = GetModuleHandleW(None)
@@ -63,11 +70,6 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
         let screen_w = GetSystemMetrics(SM_CXSCREEN);
         let screen_h = GetSystemMetrics(SM_CYSCREEN);
 
-        // WS_EX_LAYERED + WS_EX_TRANSPARENT: the combination makes the
-        // Window Manager skip this HWND for all pointer hit-testing, providing
-        // full click-through regardless of alpha value.
-        // WS_EX_NOREDIRECTIONBITMAP: no GDI surface — all visual content
-        // comes from the DirectComposition visual (see compositor.rs).
         let ex_style = WS_EX_TOPMOST
             | WS_EX_TOOLWINDOW
             | WS_EX_NOACTIVATE
@@ -75,8 +77,7 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
             | WS_EX_LAYERED
             | WS_EX_NOREDIRECTIONBITMAP;
 
-        // Create without WS_VISIBLE — we show after SetLayeredWindowAttributes
-        // to avoid a flash of opaque GDI surface.
+        // Create without WS_VISIBLE to avoid flash of opaque GDI surface.
         let hwnd = CreateWindowExW(
             ex_style,
             class_name,
@@ -93,10 +94,8 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
         )
         .map_err(|e| glass_core::GlassError::WindowCreation(format!("CreateWindowExW: {e}")))?;
 
-        // Activate the layered window.  alpha=255 keeps the DComp visual
-        // fully visible; input pass-through comes from WS_EX_TRANSPARENT,
-        // not from the alpha byte.  NOREDIRECTIONBITMAP means there is no
-        // GDI surface for this alpha to affect.
+        // Activate the layered window — alpha=255 keeps DComp visual fully
+        // visible; pass-through comes from WS_EX_TRANSPARENT.
         let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA);
 
         // Set window title (with [MODE TEST] prefix in test_mode builds)
@@ -106,7 +105,7 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
             let _ = SetWindowTextW(hwnd, windows::core::PCWSTR(title_wide.as_ptr()));
         }
 
-        // Now show the window (non-activating) so it doesn't steal focus.
+        // Show the window non-activating so it doesn't steal focus.
         let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
 
         info!(
@@ -114,7 +113,7 @@ pub fn create_overlay_window() -> Result<HWND, glass_core::GlassError> {
             screen_w, screen_h, hwnd
         );
 
-        // Add system tray icon for clean exit
+        // System tray icon for clean exit
         add_tray_icon(hwnd);
 
         Ok(hwnd)
@@ -136,7 +135,6 @@ fn add_tray_icon(hwnd: HWND) {
             ..Default::default()
         };
 
-        // Tooltip: test-mode aware title
         let tip = test_mode::TRAY_TOOLTIP;
         for (i, ch) in tip.encode_utf16().enumerate() {
             if i >= nid.szTip.len() - 1 {
@@ -174,7 +172,6 @@ fn show_tray_menu(hwnd: HWND) {
 
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
-        // Required: SetForegroundWindow before TrackPopupMenu, otherwise menu won't dismiss.
         let _ = SetForegroundWindow(hwnd);
         let _ = TrackPopupMenu(menu, TPM_LEFTALIGN | TPM_BOTTOMALIGN, pt.x, pt.y, Some(0), hwnd, None);
         let _ = DestroyMenu(menu);
@@ -189,10 +186,8 @@ unsafe extern "system" fn wnd_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     match msg {
-        // Full click-through for overlay
         WM_NCHITTEST => LRESULT(HTTRANSPARENT as isize),
 
-        // System tray icon callback
         x if x == WM_TRAYICON => {
             let mouse_msg = lparam.0 as u32;
             if mouse_msg == WM_RBUTTONUP {
@@ -201,7 +196,6 @@ unsafe extern "system" fn wnd_proc(
             LRESULT(0)
         }
 
-        // Menu command (from tray context menu)
         WM_COMMAND => {
             let id = (wparam.0 & 0xFFFF) as usize;
             if id == IDM_EXIT {
@@ -218,7 +212,6 @@ unsafe extern "system" fn wnd_proc(
             LRESULT(0)
         }
 
-        // Validate paint region so Windows stops sending WM_PAINT
         WM_PAINT => {
             let mut ps = PAINTSTRUCT::default();
             unsafe { let _ = BeginPaint(hwnd, &mut ps); }
@@ -230,7 +223,8 @@ unsafe extern "system" fn wnd_proc(
     }
 }
 
-/// Blocking message loop. Retained: only re-renders on WM_PAINT.
+/// Blocking message loop. Retained rendering: only re-renders on
+/// `WM_SIZE` / `WM_DISPLAYCHANGE`.
 pub fn run_message_loop(renderer: &mut Renderer) {
     info!("Entering message loop (retained rendering)");
     let mut msg = MSG::default();
@@ -243,7 +237,6 @@ pub fn run_message_loop(renderer: &mut Renderer) {
                 break; // WM_QUIT
             }
 
-            // Re-render on size change
             if msg.message == WM_SIZE || msg.message == WM_DISPLAYCHANGE {
                 if let Err(e) = renderer.resize() {
                     warn!("Resize failed: {e}");
@@ -256,17 +249,6 @@ pub fn run_message_loop(renderer: &mut Renderer) {
 
             let _ = TranslateMessage(&msg);
             DispatchMessageW(&msg);
-
-            // Track allocation counts per frame (debug only)
-            #[cfg(all(debug_assertions, feature = "alloc-tracking"))]
-            {
-                let allocs = crate::alloc_tracker::frame_alloc_count();
-                if frame_count > 2 && allocs > 0 {
-                    warn!("Steady-state allocation detected: {allocs} allocations in frame {frame_count}");
-                }
-                crate::alloc_tracker::reset_frame_count();
-                frame_count += 1;
-            }
         }
     }
 
