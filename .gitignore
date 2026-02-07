@@ -20,3 +20,4 @@ vs_buildtools.exe
 .venv/
 __pycache__/
 *.pyc
+uv.lock
