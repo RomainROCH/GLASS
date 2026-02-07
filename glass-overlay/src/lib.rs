@@ -6,10 +6,15 @@
 //! - [`OverlayWindow`](overlay_window) — HWND creation, DPI, tray icon, message pump
 //! - [`Compositor`](compositor::Compositor) — DirectComposition device/target/visual
 //! - [`Renderer`](renderer::Renderer) — wgpu DX12 rendering backend
+//! - [`config`] — Hot-reloadable RON/TOML configuration
+//! - [`hdr`] — HDR detection + SDR fallback
+//! - [`diagnostics`] — System diagnostics dump on errors
 //! - [`test_mode`] — Test build mode constants (watermark, forced passthrough)
 
 pub mod compositor;
 pub mod config;
+pub mod diagnostics;
+pub mod hdr;
 pub mod overlay_window;
 pub mod renderer;
 pub mod test_mode;
