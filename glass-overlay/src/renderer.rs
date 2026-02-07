@@ -7,9 +7,10 @@
 //! Retained rendering: draws once, re-renders only on explicit invalidation.
 
 use glass_core::GlassError;
+use crate::hdr;
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use tracing::{info, info_span};
+use tracing::{info, info_span, warn};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 
@@ -97,6 +98,8 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
     surface_config: wgpu::SurfaceConfiguration,
     pipeline: wgpu::RenderPipeline,
+    /// Active color pipeline name for diagnostics.
+    color_pipeline: &'static str,
 }
 
 impl Renderer {
@@ -161,11 +164,14 @@ impl Renderer {
         let caps = surface.get_capabilities(&adapter);
         info!("Surface capabilities: formats={:?}, alpha_modes={:?}", caps.formats, caps.alpha_modes);
 
-        let format = if caps.formats.contains(&wgpu::TextureFormat::Bgra8UnormSrgb) {
-            wgpu::TextureFormat::Bgra8UnormSrgb
-        } else {
-            caps.formats[0]
-        };
+        // HDR detection + format selection
+        let hdr_result = hdr::detect_primary_hdr();
+        let force_sdr = std::env::args().any(|a| a == "--force-sdr");
+        if force_sdr {
+            info!("--force-sdr flag: forcing SDR pipeline");
+        }
+        let (format, color_pipeline) =
+            hdr::choose_surface_format(&caps.formats, hdr_result.capability, force_sdr);
 
         let alpha_mode = if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PreMultiplied) {
             wgpu::CompositeAlphaMode::PreMultiplied
@@ -248,7 +254,13 @@ impl Renderer {
             surface,
             surface_config,
             pipeline,
+            color_pipeline,
         })
+    }
+
+    /// Get the active color pipeline name (for diagnostics).
+    pub fn color_pipeline(&self) -> &'static str {
+        self.color_pipeline
     }
 
     /// Handle window resize — reconfigure the surface.
@@ -264,7 +276,15 @@ impl Renderer {
         let frame = self
             .surface
             .get_current_texture()
-            .map_err(|e| GlassError::WgpuInit(format!("Surface acquire failed: {e}")))?;
+            .map_err(|e| {
+                let msg = format!("Surface acquire failed: {e}");
+                warn!("Fatal GPU error — dumping diagnostics");
+                crate::diagnostics::DiagnosticsReport::dump(
+                    Some(msg.clone()),
+                    self.color_pipeline,
+                );
+                GlassError::WgpuInit(msg)
+            })?;
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
