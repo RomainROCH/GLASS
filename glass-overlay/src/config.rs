@@ -15,6 +15,8 @@
 //! println!("opacity = {}", cfg.opacity);
 //! ```
 
+use crate::layout::LayoutConfig;
+use crate::modules::ModulesConfig;
 use arc_swap::ArcSwap;
 use glass_core::GlassError;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -81,6 +83,49 @@ impl Default for Colors {
     }
 }
 
+/// Input/interaction configuration.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InputConfig {
+    /// Virtual key code for the interactive-mode toggle hotkey.
+    /// Default: `0x7B` = F12. Common alternatives: `0x79` (F10), `0x7A` (F11).
+    #[serde(default = "default_hotkey_vk")]
+    pub hotkey_vk: u32,
+    /// Hotkey modifier flags (Win32 `MOD_*` bit mask).
+    /// Default: `0` (no modifier). `1` = Alt, `2` = Ctrl, `4` = Shift, `8` = Win.
+    #[serde(default)]
+    pub hotkey_modifiers: u32,
+    /// Interactive mode timeout in milliseconds now configurable.
+    /// After this duration, the overlay reverts to passive mode.
+    #[serde(default = "default_interactive_timeout_ms")]
+    pub interactive_timeout_ms: u32,
+    /// Whether to show the visual indicator (border + label) in interactive mode.
+    #[serde(default = "default_show_indicator")]
+    pub show_indicator: bool,
+}
+
+fn default_hotkey_vk() -> u32 {
+    0x7B // VK_F12
+}
+
+fn default_interactive_timeout_ms() -> u32 {
+    4000
+}
+
+fn default_show_indicator() -> bool {
+    true
+}
+
+impl Default for InputConfig {
+    fn default() -> Self {
+        Self {
+            hotkey_vk: default_hotkey_vk(),
+            hotkey_modifiers: 0,
+            interactive_timeout_ms: default_interactive_timeout_ms(),
+            show_indicator: default_show_indicator(),
+        }
+    }
+}
+
 /// Root overlay configuration.
 ///
 /// Fields are validated on load — out-of-range values are clamped and logged.
@@ -95,6 +140,15 @@ pub struct OverlayConfig {
     pub opacity: f32,
     #[serde(default)]
     pub colors: Colors,
+    /// Input mode configuration (hotkey, timeout, indicator).
+    #[serde(default)]
+    pub input: InputConfig,
+    /// Module system configuration (enable/disable individual modules).
+    #[serde(default)]
+    pub modules: ModulesConfig,
+    /// Layout system configuration (anchor-based widget positioning).
+    #[serde(default)]
+    pub layout: LayoutConfig,
 }
 
 fn default_opacity() -> f32 {
@@ -108,6 +162,9 @@ impl Default for OverlayConfig {
             size: Size::default(),
             opacity: 1.0,
             colors: Colors::default(),
+            input: InputConfig::default(),
+            modules: ModulesConfig::default(),
+            layout: LayoutConfig::default(),
         }
     }
 }
@@ -155,6 +212,15 @@ impl OverlayConfig {
         }
         if self.colors != other.colors {
             changes.push("colors: changed".to_string());
+        }
+        if self.input != other.input {
+            changes.push("input: changed".to_string());
+        }
+        if self.modules != other.modules {
+            changes.push("modules: changed".to_string());
+        }
+        if self.layout != other.layout {
+            changes.push("layout: changed".to_string());
         }
         if changes.is_empty() {
             "no changes".to_string()
