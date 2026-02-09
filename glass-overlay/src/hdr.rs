@@ -139,6 +139,12 @@ pub fn choose_surface_format(
     hdr: DisplayCapability,
     force_sdr: bool,
 ) -> (wgpu::TextureFormat, &'static str) {
+    // Guard: empty capabilities list — return a safe default
+    if capabilities.is_empty() {
+        warn!("Surface capabilities list is empty; defaulting to Bgra8UnormSrgb");
+        return (wgpu::TextureFormat::Bgra8UnormSrgb, "SDR/sRGB (default)");
+    }
+
     if !force_sdr && hdr == DisplayCapability::Hdr {
         // Prefer Rgba16Float for scRGB HDR
         if capabilities.contains(&wgpu::TextureFormat::Rgba16Float) {

@@ -10,13 +10,16 @@
 
 use glass_core::GlassError;
 use crate::hdr;
-use crate::scene::{Color, RectProps, Scene, TextProps};
+use crate::scene::Scene;
 use crate::text_renderer::TextEngine;
 use std::ffi::c_void;
 use std::ptr::NonNull;
 use tracing::{info, info_span, warn};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
+
+/// Timer ID used for periodic module updates in the message loop.
+pub const MODULE_UPDATE_TIMER_ID: usize = 43;
 
 /// WGSL shader for the PoC triangle.
 #[cfg(not(feature = "test_mode"))]
@@ -258,12 +261,14 @@ impl Renderer {
 
         let text_engine = TextEngine::new(&device, &queue, format);
 
+        #[allow(unused_mut)]
         let mut scene = Scene::new();
 
         // In test mode, add watermark text nodes using the scene graph.
         #[cfg(feature = "test_mode")]
         {
             use crate::test_mode;
+            use crate::scene::{Color, TextProps};
             let wm_x = (width as f32) * 0.55;
             let mut wm_y = (height as f32) - 60.0;
             for line in test_mode::WATERMARK_LINES {
@@ -296,14 +301,30 @@ impl Renderer {
         self.color_pipeline
     }
 
-    /// Handle window resize — reconfigure the surface.
-    pub fn resize(&mut self) -> Result<(), GlassError> {
+    /// Handle window resize — reconfigure the surface with new dimensions.
+    ///
+    /// **P0 fix**: Previous version did not update `surface_config.width/height`
+    /// before reconfiguring, causing stale dimensions.
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), GlassError> {
         let _span = info_span!("resize").entered();
+        let width = width.max(1);
+        let height = height.max(1);
+        self.surface_config.width = width;
+        self.surface_config.height = height;
         self.surface.configure(&self.device, &self.surface_config);
+        info!("Surface resized to {width}x{height}");
         Ok(())
     }
 
+    /// Get current surface dimensions.
+    pub fn surface_dims(&self) -> (u32, u32) {
+        (self.surface_config.width, self.surface_config.height)
+    }
+
     /// Render one frame: clear to transparent, draw content + scene text.
+    ///
+    /// Includes surface error recovery: on `Lost` or `Outdated`, reconfigures
+    /// the surface and retries once before returning an error.
     pub fn render(&mut self) -> Result<(), GlassError> {
         // Prepare text engine with current scene
         self.text_engine.prepare(
@@ -315,18 +336,39 @@ impl Renderer {
         );
 
         let _acquire_span = info_span!("acquire").entered();
-        let frame = self
-            .surface
-            .get_current_texture()
-            .map_err(|e| {
+        let frame = match self.surface.get_current_texture() {
+            Ok(f) => f,
+            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                // Surface lost/outdated — reconfigure and retry once
+                warn!("Surface lost/outdated — reconfiguring and retrying");
+                self.surface.configure(&self.device, &self.surface_config);
+                self.surface
+                    .get_current_texture()
+                    .map_err(|e| {
+                        let msg = format!("Surface acquire failed after reconfigure: {e}");
+                        warn!("Fatal GPU error — dumping diagnostics");
+                        crate::diagnostics::DiagnosticsReport::dump(
+                            Some(msg.clone()),
+                            self.color_pipeline,
+                        );
+                        GlassError::WgpuInit(msg)
+                    })?
+            }
+            Err(wgpu::SurfaceError::Timeout) => {
+                // Timeout is transient — skip this frame
+                warn!("Surface acquire timeout — skipping frame");
+                return Ok(());
+            }
+            Err(e) => {
                 let msg = format!("Surface acquire failed: {e}");
                 warn!("Fatal GPU error — dumping diagnostics");
                 crate::diagnostics::DiagnosticsReport::dump(
                     Some(msg.clone()),
                     self.color_pipeline,
                 );
-                GlassError::WgpuInit(msg)
-            })?;
+                return Err(GlassError::WgpuInit(msg));
+            }
+        };
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());

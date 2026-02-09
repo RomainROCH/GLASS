@@ -19,7 +19,7 @@ use glyphon::{
     Buffer, Cache, ColorMode, FontSystem, Metrics, Resolution, SwashCache, TextArea, TextAtlas,
     TextBounds, TextRenderer, Viewport,
 };
-use tracing::{debug, warn};
+use tracing::{debug, info_span, warn};
 
 /// All-in-one text rendering engine.
 ///
@@ -96,6 +96,8 @@ impl TextEngine {
         width: u32,
         height: u32,
     ) {
+        let _span = info_span!("text_prepare").entered();
+
         // Update viewport resolution
         self.viewport.update(
             queue,
@@ -201,6 +203,7 @@ impl TextEngine {
         &'pass self,
         pass: &mut wgpu::RenderPass<'pass>,
     ) {
+        let _span = info_span!("text_render").entered();
         if let Err(e) = self.text_renderer.render(&self.atlas, &self.viewport, pass) {
             warn!("glyphon render error: {e:?}");
         }

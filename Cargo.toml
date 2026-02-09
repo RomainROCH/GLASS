@@ -30,9 +30,13 @@ windows = { version = "0.59", features = [
     "Win32_System_Com",
     "Win32_System_SystemInformation",
     "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
     "Win32_System_LibraryLoader",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Services",
+    "Win32_Security",
 ] }
 
 # Window handle interop
@@ -60,6 +64,12 @@ notify = { version = "7", default-features = false, features = ["macos_kqueue"] 
 
 # Text rendering
 glyphon = "0.8"
+
+# System metrics (CPU/memory)
+sysinfo = "0.33"
+
+# Time formatting
+chrono = "0.4"
 
 # ── Local patches ────────────────────────────────────────────
 # wgpu-hal 24.0.4 hardcodes Opaque alpha and DXGI_ALPHA_MODE_IGNORE.
