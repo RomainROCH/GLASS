@@ -7,8 +7,8 @@ status: not-started
 priority: high
 owner: "unassigned"
 skills: ["security", "infra-settings", "docs", "planning-feature"]
-depends_on: []
-next_tasks: []
+depends_on: ["phase4-01-beta-testing", "phase3-03-ci-pipeline"]
+next_tasks: ["phase5-03-distribution"]
 created: "2026-02-06"
 updated: "2026-02-06"
 ---

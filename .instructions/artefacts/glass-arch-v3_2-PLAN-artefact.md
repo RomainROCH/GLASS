@@ -38,10 +38,12 @@ Build a robust, low-overhead Windows game overlay (Glass Overlay) based on a DX1
 - 1.5 Resolution / DPI independence.
 - 1.6 Error handling + diagnostics dump (crash and non-crash diagnostics).
 
-**Phase 2 (Interaction)**
+**Phase 2 (Interaction + Layout)**
 - 2.1 Passive mode default (heatless overlay).
 - 2.2 Interactive mode hotkey + timeout + indicator.
 - 2.3 Rect-based hit testing (opt-in interactive areas).
+- 2.4 Minimal UI toolkit: Widget trait (`bounding_box`, `contains_point`, `draw`), `WidgetWrapper<M>` composition, `BoundingBox`.
+- 2.5 Anchor-based layout system: `Anchor` enum (TopLeft/TopRight/BottomLeft/BottomRight/Center/ScreenPercentage), `LayoutManager` flat list, O(n≤10) hit-testing, resize recalculation.
 
 **Phase 3 (Modules & UX)**
 - 3.1 Module trait + registry.
