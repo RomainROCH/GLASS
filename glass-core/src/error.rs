@@ -13,8 +13,12 @@ pub enum GlassError {
     HdrUnavailable(String),
     /// Configuration loading or parsing failed.
     ConfigError(String),
+    /// Input subsystem error (hotkey registration, mode switch).
+    InputError(String),
     /// Generic OS error with HRESULT.
     OsError(String),
+    /// Anti-cheat safety gate blocked startup.
+    SafetyBlock(String),
 }
 
 impl fmt::Display for GlassError {
@@ -25,7 +29,9 @@ impl fmt::Display for GlassError {
             GlassError::WindowCreation(msg) => write!(f, "Window creation failed: {msg}"),
             GlassError::HdrUnavailable(msg) => write!(f, "HDR unavailable (SDR fallback): {msg}"),
             GlassError::ConfigError(msg) => write!(f, "Config error: {msg}"),
+            GlassError::InputError(msg) => write!(f, "Input error: {msg}"),
             GlassError::OsError(msg) => write!(f, "OS error: {msg}"),
+            GlassError::SafetyBlock(msg) => write!(f, "Anti-cheat safety block: {msg}"),
         }
     }
 }
