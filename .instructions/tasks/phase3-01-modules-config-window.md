@@ -3,14 +3,14 @@ schema: task/v1
 id: task-000436
 title: "Add Overlay modules + config window: `OverlayModule` trait, module registry, Clock/System Stats/Overlay-only FPS modules, and egui-based config window"
 type: feature
-status: not-started
+status: done
 priority: medium
-owner: "unassigned"
+owner: "executive2"
 skills: ["design", "frontend", "refactor"]
-depends_on: ["task-000435"]
+depends_on: []
 next_tasks: []
 created: "2026-02-06"
-updated: "2026-02-06"
+updated: "2026-02-08"
 ---
 
 ## Goal

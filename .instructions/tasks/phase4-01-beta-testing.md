@@ -7,8 +7,8 @@ status: not-started
 priority: high
 owner: "unassigned"
 skills: ["testing-dotnet-unit", "docs", "planning-feature"]
-depends_on: []
-next_tasks: []
+depends_on: ["phase3-01-modules-config-window", "phase3-02-selfcheck-anticheat"]
+next_tasks: ["phase5-01-signing-release"]
 created: "2026-02-06"
 updated: "2026-02-06"
 ---

@@ -11,4 +11,10 @@
         primary: (0.0, 0.0, 0.0, 0.6),     // semi-transparent black background
         secondary: (1.0, 1.0, 1.0, 1.0),   // opaque white text
     ),
+    input: (
+        hotkey_vk: 0x7B,                   // F12 — toggle interactive mode
+        hotkey_modifiers: 0,                // no modifier (0=none, 1=Alt, 2=Ctrl, 4=Shift, 8=Win)
+        interactive_timeout_ms: 4000,       // revert to passive after 4 seconds
+        show_indicator: true,               // show border + label when interactive
+    ),
 )

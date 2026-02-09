@@ -6,8 +6,8 @@ type: chore
 status: blocked
 priority: medium
 owner: "user"
-skills: ["quality-auditor", "testing-frontend-unit", "docs"]
-depends_on: ["task-000001"]
+skills: ["quality-auditor", "docs"]
+depends_on: []
 next_tasks: []
 created: "2026-02-06"
 updated: "2026-02-06"
