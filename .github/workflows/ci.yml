@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── Build + Test ─────────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        features: ["", "test_mode", "alloc-tracking"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.features }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-
+
+      - name: Build (features=${{ matrix.features || 'default' }})
+        run: |
+          if ("${{ matrix.features }}" -eq "") {
+            cargo build --workspace
+          } else {
+            cargo build --workspace --features "${{ matrix.features }}"
+          }
+
+      - name: Test (features=${{ matrix.features || 'default' }})
+        run: |
+          if ("${{ matrix.features }}" -eq "") {
+            cargo test --workspace --no-fail-fast
+          } else {
+            cargo test --workspace --features "${{ matrix.features }}" --no-fail-fast
+          }
+
+  # ── Clippy ───────────────────────────────────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-clippy-
+
+      - name: Clippy (default features)
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Clippy (test_mode)
+        run: cargo clippy --workspace --features test_mode -- -D warnings
+
+  # ── Format ──────────────────────────────────────────────────────────
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # ── Feature gate check ─────────────────────────────────────────────
+  feature-check:
+    name: Feature Gate Check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-features-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-features-
+
+      - name: Check default (no features)
+        run: cargo check --workspace
+
+      - name: Check test_mode
+        run: cargo check --workspace --features test_mode
+
+      - name: Check tracy
+        run: cargo check --workspace --features tracy
+
+      - name: Check alloc-tracking
+        run: cargo check --workspace --features alloc-tracking
+
+      - name: Check all features combined
+        run: cargo check --workspace --features "test_mode,tracy,alloc-tracking"
