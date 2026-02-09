@@ -9,6 +9,8 @@ default = []
 # enables TRACE-level logging, prepends [MODE TEST] to tray tooltip.
 # Used during anti-cheat validation campaigns (see PlanSecurite Phase 0.3).
 test_mode = []
+# Tracy profiling: opt-in, wires tracing spans into Tracy profiler.
+tracy = ["dep:tracing-tracy"]
 
 [dependencies]
 glass-core = { path = "../glass-core" }
@@ -24,3 +26,7 @@ toml = { workspace = true }
 arc-swap = { workspace = true }
 notify = { workspace = true }
 glyphon = { workspace = true }
+sysinfo = { workspace = true }
+chrono = { workspace = true }
+tracing-tracy = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true }

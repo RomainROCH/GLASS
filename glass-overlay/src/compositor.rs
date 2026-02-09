@@ -9,7 +9,7 @@
 use glass_core::GlassError;
 use std::ffi::c_void;
 use std::ptr::NonNull;
-use tracing::info;
+use tracing::{info, info_span};
 use windows::core::Interface;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::DirectComposition::*;
@@ -65,6 +65,7 @@ impl Compositor {
     /// Commit pending changes. Must be called after wgpu configures the surface
     /// so the swapchain binding (`SetContent`) takes effect.
     pub fn commit(&self) -> Result<(), GlassError> {
+        let _span = info_span!("dcomp_commit").entered();
         unsafe {
             self.device
                 .Commit()

@@ -12,8 +12,10 @@ glass-core = { path = "../glass-core" }
 glass-overlay = { path = "../glass-overlay" }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tracing-tracy = { workspace = true, optional = true }
 
 [features]
 default = []
 alloc-tracking = []
 test_mode = ["glass-overlay/test_mode"]
+tracy = ["glass-overlay/tracy", "dep:tracing-tracy"]
