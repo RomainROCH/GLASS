@@ -1,6 +1,11 @@
 # GLASS — DX12-only wgpu backend
 # This ensures wgpu never attempts Vulkan/GL/Metal backends.
 
+[build]
+# Target Windows MSVC (the only supported platform for this project).
+# Use `cargo xwin build` on Linux/macOS to cross-compile without MSVC installed.
+target = "x86_64-pc-windows-msvc"
+
 [env]
 # Force wgpu to use DX12 backend only
 WGPU_BACKEND = "dx12"
