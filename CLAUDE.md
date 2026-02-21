@@ -16,6 +16,12 @@ dependency management.
 If you see `command not found: python` — that is expected.
 The fix is **always** `./python` (not `python`, not `python3`, not `py`).
 
+## Build
+Utiliser le cargo Windows natif (alias configuré dans .bashrc) :
+```bash
+cargo build --workspace
+```
+
 ## Available Commands
 
 ### Direct execution
