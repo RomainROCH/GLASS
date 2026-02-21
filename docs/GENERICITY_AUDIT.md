@@ -13,8 +13,8 @@ or use-case-specific, and practical recommendations and an action plan.
 
 Summary of recent changes (relevant to genericity)
 -----------------------------------------------
-- `glass-poc` renamed to `glass-starter` and reworded as a reference starter
-  application rather than a PoC. This clarifies the repo's intent as a
+- The starter crate was renamed and reworded as a reference starter
+  application rather than an internal prototype. This clarifies the repo's intent as a
   reusable base.
 - Anti-cheat detection logic was feature-gated behind a new `gaming`
   Cargo feature. Default builds are no longer gaming-specific or hostile to
@@ -199,4 +199,3 @@ Appendix: checklist for "library readiness"
 - [ ] Renderer backend abstraction (TODO)
 - [ ] Integration CI tests (TODO)
 - [ ] CONTRIBUTING/SECURITY/CODE_OF_CONDUCT (TODO)
-

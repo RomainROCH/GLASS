@@ -7,10 +7,11 @@ edition.workspace = true
 default = []
 # Test build mode: renders permanent watermark, forces input passthrough,
 # enables TRACE-level logging, prepends [MODE TEST] to tray tooltip.
-# Used during anti-cheat validation campaigns (see PlanSecurite Phase 0.3).
+# Used during validation and visual checks.
 test_mode = []
 # Tracy profiling: opt-in, wires tracing spans into Tracy profiler.
 tracy = ["dep:tracing-tracy"]
+gaming = []
 
 [dependencies]
 glass-core = { path = "../glass-core" }

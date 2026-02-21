@@ -21,78 +21,6 @@ use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 /// Timer ID used for periodic module updates in the message loop.
 pub const MODULE_UPDATE_TIMER_ID: usize = 43;
 
-/// Demo WGSL shader — draws a semi-transparent green triangle.
-/// TODO: Replace with your own rendering logic or remove the pipeline entirely.
-#[cfg(not(feature = "test_mode"))]
-const SHADER_SRC: &str = r#"
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-};
-
-@vertex
-fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
-    var positions = array<vec2<f32>, 3>(
-        vec2<f32>( 0.0,  0.5),
-        vec2<f32>(-0.5, -0.5),
-        vec2<f32>( 0.5, -0.5),
-    );
-
-    var out: VertexOutput;
-    out.position = vec4<f32>(positions[idx], 0.0, 1.0);
-    // Premultiplied alpha: green at 50%
-    out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
-    return out;
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
-}
-"#;
-
-/// Demo WGSL shader — test_mode variant with watermark block.
-#[cfg(feature = "test_mode")]
-const SHADER_SRC: &str = r#"
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-};
-
-@vertex
-fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
-    var positions = array<vec2<f32>, 9>(
-        vec2<f32>( 0.0,  0.5),
-        vec2<f32>(-0.5, -0.5),
-        vec2<f32>( 0.5, -0.5),
-        // Watermark rectangle (two triangles)
-        vec2<f32>( 0.65, -0.75),
-        vec2<f32>( 0.95, -0.75),
-        vec2<f32>( 0.65, -0.95),
-        vec2<f32>( 0.65, -0.95),
-        vec2<f32>( 0.95, -0.75),
-        vec2<f32>( 0.95, -0.95),
-    );
-
-    var out: VertexOutput;
-    out.position = vec4<f32>(positions[idx], 0.0, 1.0);
-
-    if (idx < 3u) {
-        out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
-    } else {
-        // Watermark block (premultiplied white at 35% alpha)
-        out.color = vec4<f32>(0.35, 0.35, 0.35, 0.35);
-    }
-
-    return out;
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
-}
-"#;
-
 /// Low-level GPU backend wrapper for wgpu/DX12 draw submission.
 ///
 /// Encapsulates GPU initialization, swapchain presentation, and rendering.
@@ -105,7 +33,6 @@ pub struct Renderer {
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
     surface_config: wgpu::SurfaceConfiguration,
-    pipeline: wgpu::RenderPipeline,
     /// Active color pipeline name for diagnostics.
     color_pipeline: &'static str,
     /// Retained scene graph.
@@ -207,59 +134,6 @@ impl Renderer {
         };
         surface.configure(&device, &surface_config);
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("GLASS Shader"),
-            source: wgpu::ShaderSource::Wgsl(SHADER_SRC.into()),
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("GLASS Pipeline Layout"),
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("GLASS Pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                        alpha: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::One,
-                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
-
-        info!("Render pipeline created");
-
         let text_engine = TextEngine::new(&device, &queue, format);
 
         #[allow(unused_mut)]
@@ -290,7 +164,6 @@ impl Renderer {
             queue,
             surface,
             surface_config,
-            pipeline,
             color_pipeline,
             scene,
             text_engine,
@@ -322,7 +195,7 @@ impl Renderer {
         (self.surface_config.width, self.surface_config.height)
     }
 
-    /// Render one frame: clear to transparent, draw content + scene text.
+    /// Render one frame: clear to transparent, then draw scene text.
     ///
     /// Includes surface error recovery: on `Lost` or `Outdated`, reconfigures
     /// the surface and retries once before returning an error.
@@ -347,11 +220,7 @@ impl Renderer {
                     .get_current_texture()
                     .map_err(|e| {
                         let msg = format!("Surface acquire failed after reconfigure: {e}");
-                        warn!("Fatal GPU error — dumping diagnostics");
-                        crate::diagnostics::DiagnosticsReport::dump(
-                            Some(msg.clone()),
-                            self.color_pipeline,
-                        );
+                        warn!("Fatal GPU error: {msg}");
                         GlassError::WgpuInit(msg)
                     })?
             }
@@ -362,11 +231,7 @@ impl Renderer {
             }
             Err(e) => {
                 let msg = format!("Surface acquire failed: {e}");
-                warn!("Fatal GPU error — dumping diagnostics");
-                crate::diagnostics::DiagnosticsReport::dump(
-                    Some(msg.clone()),
-                    self.color_pipeline,
-                );
+                warn!("Fatal GPU error: {msg}");
                 return Err(GlassError::WgpuInit(msg));
             }
         };
@@ -402,14 +267,6 @@ impl Renderer {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-
-            // Draw demo triangle — TODO: replace with your own render logic
-            rpass.set_pipeline(&self.pipeline);
-            #[cfg(feature = "test_mode")]
-            let vertex_count = 9;
-            #[cfg(not(feature = "test_mode"))]
-            let vertex_count = 3;
-            rpass.draw(0..vertex_count, 0..1);
 
             // Draw scene text (watermark in test_mode, future HUD text)
             self.text_engine.render(&mut rpass);

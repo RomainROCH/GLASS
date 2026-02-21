@@ -32,9 +32,10 @@ use tracing::debug;
 ///
 /// The anchor determines which screen edge/corner the widget is aligned to.
 /// A margin offset is applied from the anchor point inward.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum Anchor {
     /// Top-left corner (default). Margin pushes right and down.
+    #[default]
     TopLeft,
     /// Top-right corner. Margin pushes left and down.
     TopRight,
@@ -47,12 +48,6 @@ pub enum Anchor {
     /// Position as a percentage of screen dimensions.
     /// Values in `[0.0, 1.0]` — e.g. `(0.5, 0.5)` is screen center.
     ScreenPercentage(f32, f32),
-}
-
-impl Default for Anchor {
-    fn default() -> Self {
-        Anchor::TopLeft
-    }
 }
 
 impl Anchor {

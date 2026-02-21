@@ -223,7 +223,7 @@ Feature flags are declared on `glass-starter` (or `glass-overlay` for library co
 | `test_mode` | `glass-overlay`, `glass-starter` | Renders a permanent watermark, forces input passthrough (no interactive mode), enables `TRACE`-level logging, prepends `[MODE TEST]` to the tray tooltip. Used during validation/testing. |
 | `tracy` | `glass-overlay`, `glass-starter` | Wires `tracing` spans into the [Tracy](https://github.com/wolfpld/tracy) profiler via `tracing-tracy`. Requires a running Tracy server. |
 | `alloc-tracking` | `glass-starter` | Installs a debug allocator that counts heap allocations. Logs allocation counts at startup and can be used to verify zero-allocation steady state. |
-| `gaming` _(planned)_ | — | Will gate gaming-specific behaviour (anti-cheat self-check, game window attachment) behind a feature flag so non-gaming consumers can opt out. |
+| `gaming` | `glass-starter`, `glass-overlay`, `glass-core` | Enables optional gaming safety checks (anti-cheat self-check). Non-gaming consumers can leave it disabled. |
 
 ```sh
 # Build with Tracy profiling
@@ -292,7 +292,7 @@ cargo build --workspace
 # Release
 cargo build --workspace --release
 
-# PoC harness only
+# Starter harness only
 cargo build -p glass-starter
 
 # Run tests

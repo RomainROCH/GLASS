@@ -380,7 +380,7 @@ unsafe extern "system" fn wnd_proc(
         }
 
         WM_COMMAND => {
-            let id = (wparam.0 & 0xFFFF) as usize;
+            let id = wparam.0 & 0xFFFF;
             if id == IDM_EXIT {
                 info!("Quit requested via tray icon");
                 remove_tray_icon(hwnd);

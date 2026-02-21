@@ -45,6 +45,31 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     // wgpu DX12 renderer
     let mut renderer = Renderer::new(dcomp.visual_handle(), hwnd)
         .map_err(|e| format!("Renderer: {e}"))?;
+    // Example: draw a triangle — replace with your own render logic
+    // const SHADER_SRC: &str = r#"
+    // struct VertexOutput {
+    //     @builtin(position) position: vec4<f32>,
+    //     @location(0) color: vec4<f32>,
+    // };
+    //
+    // @vertex
+    // fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
+    //     var positions = array<vec2<f32>, 3>(
+    //         vec2<f32>( 0.0,  0.5),
+    //         vec2<f32>(-0.5, -0.5),
+    //         vec2<f32>( 0.5, -0.5),
+    //     );
+    //     var out: VertexOutput;
+    //     out.position = vec4<f32>(positions[idx], 0.0, 1.0);
+    //     out.color = vec4<f32>(0.0, 0.5, 0.0, 0.5);
+    //     return out;
+    // }
+    //
+    // @fragment
+    // fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    //     return in.color;
+    // }
+    // "#;
 
     // Commit DComp (binds visual → swapchain)
     dcomp.commit()?;
