@@ -25,7 +25,7 @@ from pathlib import Path
 
 # ── Configuration ────────────────────────────────────────────────────────────
 GLASS_ORIGIN = "https://github.com/RomainROCH/GLASS-UltimateOverlay.git"
-WGPU_FORK_URL = "https://github.com/RomainROCH/wgpu.git"
+WGPU_FORK_URL = "https://github.com/RomainROCH/wgpu"
 WGPU_REMOTE = "wgpu-fork"          # name of the git remote for the fork
 SUBTREE_PREFIX = "third_party/wgpu"
 DEFAULT_BRANCH = "v24"              # branch on the wgpu fork to track (v24 series)

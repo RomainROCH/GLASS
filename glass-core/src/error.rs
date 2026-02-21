@@ -17,6 +17,7 @@ pub enum GlassError {
     InputError(String),
     /// Generic OS error with HRESULT.
     OsError(String),
+    #[cfg(feature = "gaming")]
     /// Anti-cheat safety gate blocked startup.
     SafetyBlock(String),
 }
@@ -31,6 +32,7 @@ impl fmt::Display for GlassError {
             GlassError::ConfigError(msg) => write!(f, "Config error: {msg}"),
             GlassError::InputError(msg) => write!(f, "Input error: {msg}"),
             GlassError::OsError(msg) => write!(f, "OS error: {msg}"),
+            #[cfg(feature = "gaming")]
             GlassError::SafetyBlock(msg) => write!(f, "Anti-cheat safety block: {msg}"),
         }
     }

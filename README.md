@@ -24,14 +24,14 @@ Three crates in a Cargo workspace:
 ```
 glass-core/      — shared error types (GlassError)
 glass-overlay/   — the framework library: compositor, renderer, scene, config, layout, input, modules
-glass-poc/       — example application and integration harness (start here)
+glass-starter/       — example application and integration harness (start here)
 third_party/wgpu — git-subtree wgpu fork (patched for premultiplied alpha)
 ```
 
 ### Component diagram
 
 ```
-glass-poc (binary)
+glass-starter (binary)
   │
   ├─ ConfigStore ─────── RON/TOML file ──► hot-reload via notify + ArcSwap
   ├─ overlay_window ──── Win32 HWND (WS_EX_LAYERED | WS_EX_TRANSPARENT)
@@ -57,7 +57,7 @@ glass-poc (binary)
 ```sh
 git clone https://github.com/your-org/GLASS-UltimateOverlay
 cd GLASS-UltimateOverlay
-cargo run -p glass-poc
+cargo run -p glass-starter
 ```
 
 A `config.ron` is created automatically with defaults on first run.
@@ -71,7 +71,7 @@ cargo build --workspace
 ### Test-mode build (watermark + forced passthrough)
 
 ```sh
-cargo build -p glass-poc --features test_mode
+cargo build -p glass-starter --features test_mode
 ```
 
 ## Creating Your Own Module
@@ -136,7 +136,7 @@ impl OverlayModule for MyModule {
 }
 ```
 
-Then register it in `glass-poc/src/main.rs`:
+Then register it in `glass-starter/src/main.rs`:
 
 ```rust
 layout_manager.add_widget(WidgetWrapper::new(
@@ -216,24 +216,24 @@ The overlay reads `config.ron` (or `config.toml`) from the working directory. Th
 
 ## Feature Flags
 
-Feature flags are declared on `glass-poc` (or `glass-overlay` for library consumers):
+Feature flags are declared on `glass-starter` (or `glass-overlay` for library consumers):
 
 | Flag | Crate | Effect |
 |------|-------|--------|
-| `test_mode` | `glass-overlay`, `glass-poc` | Renders a permanent watermark, forces input passthrough (no interactive mode), enables `TRACE`-level logging, prepends `[MODE TEST]` to the tray tooltip. Used during validation/testing. |
-| `tracy` | `glass-overlay`, `glass-poc` | Wires `tracing` spans into the [Tracy](https://github.com/wolfpld/tracy) profiler via `tracing-tracy`. Requires a running Tracy server. |
-| `alloc-tracking` | `glass-poc` | Installs a debug allocator that counts heap allocations. Logs allocation counts at startup and can be used to verify zero-allocation steady state. |
+| `test_mode` | `glass-overlay`, `glass-starter` | Renders a permanent watermark, forces input passthrough (no interactive mode), enables `TRACE`-level logging, prepends `[MODE TEST]` to the tray tooltip. Used during validation/testing. |
+| `tracy` | `glass-overlay`, `glass-starter` | Wires `tracing` spans into the [Tracy](https://github.com/wolfpld/tracy) profiler via `tracing-tracy`. Requires a running Tracy server. |
+| `alloc-tracking` | `glass-starter` | Installs a debug allocator that counts heap allocations. Logs allocation counts at startup and can be used to verify zero-allocation steady state. |
 | `gaming` _(planned)_ | — | Will gate gaming-specific behaviour (anti-cheat self-check, game window attachment) behind a feature flag so non-gaming consumers can opt out. |
 
 ```sh
 # Build with Tracy profiling
-cargo build -p glass-poc --features tracy
+cargo build -p glass-starter --features tracy
 
 # Build test-mode binary
-cargo build -p glass-poc --features test_mode
+cargo build -p glass-starter --features test_mode
 
 # Combine flags
-cargo build -p glass-poc --features "test_mode,alloc-tracking"
+cargo build -p glass-starter --features "test_mode,alloc-tracking"
 ```
 
 ## Technical Deep-Dive
@@ -293,7 +293,7 @@ cargo build --workspace
 cargo build --workspace --release
 
 # PoC harness only
-cargo build -p glass-poc
+cargo build -p glass-starter
 
 # Run tests
 cargo test --workspace
@@ -305,4 +305,4 @@ cargo test --workspace
 
 ## License
 
-MIT — see [LICENSE](LICENSE) or `license = "MIT"` in `Cargo.toml`.
+Licensed under MIT or Apache 2.0, at your option. See LICENSE-MIT and LICENSE-APACHE for details.

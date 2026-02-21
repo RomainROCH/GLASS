@@ -19,4 +19,4 @@ default = []
 alloc-tracking = []
 test_mode = ["glass-overlay/test_mode"]
 tracy = ["glass-overlay/tracy", "dep:tracing-tracy"]
-gaming = []   # Enables anti-cheat detection at startup
+gaming = ["glass-core/gaming"]   # Enables anti-cheat detection at startup

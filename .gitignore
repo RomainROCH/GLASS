@@ -21,3 +21,5 @@ vs_buildtools.exe
 __pycache__/
 *.pyc
 uv.lock
+.artifacts/
+CLAUDE.md
