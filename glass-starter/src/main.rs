@@ -15,8 +15,6 @@
 //! Input modes: passive (default) ↔ interactive (hotkey toggle).
 //! In test_mode builds, interactive mode is forcibly disabled.
 
-mod alloc_tracker;
-
 #[cfg(feature = "gaming")]
 use glass_core::GlassError;
 use glass_overlay::compositor::Compositor;
@@ -66,10 +64,6 @@ fn main() {
             )
             .init();
     }
-
-    // Debug-mode allocation tracking (Step 0.5)
-    #[cfg(all(debug_assertions, feature = "alloc-tracking"))]
-    alloc_tracker::install();
 
     info!("GLASS Starter starting");
 
@@ -229,15 +223,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         layout_manager.len(),
         layout_manager.list().iter().filter(|(_, e)| *e).count()
     );
-
-    // ── Demo interactive rect (development only) ────────────────────────
-    unsafe {
-        if let Some(state_ptr) = overlay_window::get_hwnd_input_state(hwnd) {
-            // Demo interactive rect: a 200×60 button area at (100, 100)
-            (*state_ptr).hit_tester.add_rect(100.0, 100.0, 200.0, 60.0, 0);
-            info!("Demo interactive rect registered at (100,100) 200×60");
-        }
-    }
 
     // Input manager handles visual indicator lifecycle
     let mut input_manager = InputManager::new();

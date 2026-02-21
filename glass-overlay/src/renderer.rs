@@ -21,7 +21,8 @@ use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 /// Timer ID used for periodic module updates in the message loop.
 pub const MODULE_UPDATE_TIMER_ID: usize = 43;
 
-/// WGSL shader for the PoC triangle.
+/// Demo WGSL shader — draws a semi-transparent green triangle.
+/// TODO: Replace with your own rendering logic or remove the pipeline entirely.
 #[cfg(not(feature = "test_mode"))]
 const SHADER_SRC: &str = r#"
 struct VertexOutput {
@@ -50,7 +51,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
-/// WGSL shader for PoC triangle + test-mode watermark block.
+/// Demo WGSL shader — test_mode variant with watermark block.
 #[cfg(feature = "test_mode")]
 const SHADER_SRC: &str = r#"
 struct VertexOutput {
@@ -402,7 +403,7 @@ impl Renderer {
                 occlusion_query_set: None,
             });
 
-            // Draw PoC triangle(s)
+            // Draw demo triangle — TODO: replace with your own render logic
             rpass.set_pipeline(&self.pipeline);
             #[cfg(feature = "test_mode")]
             let vertex_count = 9;

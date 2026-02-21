@@ -2,13 +2,12 @@
 //!
 //! When the `test_mode` Cargo feature is enabled, the overlay renders a
 //! permanent watermark, forces input passthrough, and enables verbose logging.
-//! This makes GLASS's research-prototype nature visually obvious during
-//! anti-cheat validation campaigns (see `PlanSecurite-NePasSupprimer`).
+//! Useful for visual validation, demoing, and screenshot/recording sessions.
 //!
 //! # Usage
 //!
 //! ```sh
-//! cargo build -p glass-poc --features test_mode
+//! cargo build -p glass-starter --features test_mode
 //! ```
 
 /// Whether the current build has test mode enabled.
@@ -20,9 +19,9 @@ pub const TEST_MODE: bool = false;
 /// Watermark text lines rendered in the bottom-right corner.
 #[cfg(feature = "test_mode")]
 pub const WATERMARK_LINES: &[&str] = &[
-    "GLASS v0.1 — PROTOTYPE DE RECHERCHE",
+    "GLASS — Windows Overlay Framework",
     "github.com/user/GLASS-UltimateOverlay",
-    "Mode test — usage non commercial",
+    "[test_mode build]",
 ];
 
 /// Font size for the watermark (logical pixels).
