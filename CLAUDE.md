@@ -22,6 +22,40 @@ Utiliser le cargo Windows natif (alias configuré dans .bashrc) :
 cargo build --workspace
 ```
 
+## Build Troubleshooting — After a Visual Studio Update
+
+The linker is invoked via `C:\Users\RomainROCH\.cargo\link-wrapper.cmd`, configured in
+`C:\Users\RomainROCH\.cargo\config.toml`. The wrapper uses `dir /b /ad /o-n` to
+auto-select the **latest** MSVC version under:
+
+```
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\
+```
+
+Routine VS updates (new MSVC toolset version) require **no manual changes** — the wrapper
+resolves the version dynamically on every build.
+
+### What can still break
+
+| Scenario | Symptom | Fix |
+|---|---|---|
+| VS BuildTools 2022 uninstalled or path moved | Linker not found / `link.exe` error | Reinstall VS BuildTools 2022 or restore the path |
+| BuildTools year changes (e.g. 2022 → 2025) | `dir` finds no versions; linker not found | Update `MSVC_BASE` in `link-wrapper.cmd` to the new year |
+| `MSVC\` directory is empty (partial install) | Same linker error | Run VS Installer → Repair, or install the "MSVC build tools" component |
+
+### How to verify
+
+```bash
+cargo build --workspace   # uses the cargo.exe alias from ~/.bashrc
+```
+
+If the build succeeds, the wrapper resolved the toolchain correctly.
+For manual inspection from PowerShell:
+
+```powershell
+dir "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\" -Directory | Sort-Object Name -Descending | Select-Object -First 1
+```
+
 ## Available Commands
 
 ### Direct execution
