@@ -2,7 +2,7 @@
 # This ensures wgpu never attempts Vulkan/GL/Metal backends.
 #
 # Build on WSL2 (Windows parity mode):
-#   alias cargo="/mnt/c/Users/<user>/.cargo/bin/cargo.exe"  (in ~/.bashrc)
+#   /usr/local/bin/cargo is a wrapper script that calls cargo.exe (works in non-interactive shells).
 #   Machine-level config (~/.cargo/config.toml on Windows side) must set:
 #     - [target.x86_64-pc-windows-msvc] linker = "<full path to link.exe>"
 #     - [env] LIB = "<MSVC lib>;<WinSDK ucrt>;<WinSDK um>"

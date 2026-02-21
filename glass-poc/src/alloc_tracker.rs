@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! Debug-mode allocation tracker (Step 0.5).
 //!
 //! When enabled via `--features alloc-tracking` in debug builds,

@@ -17,7 +17,7 @@ If you see `command not found: python` — that is expected.
 The fix is **always** `./python` (not `python`, not `python3`, not `py`).
 
 ## Build
-Utiliser le cargo Windows natif (alias configuré dans .bashrc) :
+`/usr/local/bin/cargo` is a wrapper script that calls the Windows `cargo.exe`. It works in both interactive and non-interactive shells (no need to source `~/.bashrc`).
 ```bash
 cargo build --workspace
 ```
@@ -46,7 +46,7 @@ resolves the version dynamically on every build.
 ### How to verify
 
 ```bash
-cargo build --workspace   # uses the cargo.exe alias from ~/.bashrc
+cargo build --workspace   # uses the /usr/local/bin/cargo wrapper script
 ```
 
 If the build succeeds, the wrapper resolved the toolchain correctly.
