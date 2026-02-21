@@ -13,6 +13,11 @@ exclude = [
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
+description = "A GPU-accelerated, transparent Windows overlay framework built on DirectComposition and wgpu/DX12"
+homepage = "https://github.com/RomainROCH/GLASS-UltimateOverlay"
+repository = "https://github.com/RomainROCH/GLASS-UltimateOverlay"
+keywords = ["overlay", "wgpu", "directcomposition", "windows", "dx12"]
+categories = ["graphics", "gui", "rendering", "game-development"]
 
 [workspace.dependencies]
 # Rendering — DX12 only
