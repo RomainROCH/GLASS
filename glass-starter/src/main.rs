@@ -1,11 +1,11 @@
-//! GLASS PoC — thin harness exercising `glass-overlay`.
+//! GLASS Starter — reference implementation and starting point for custom GLASS overlays.
 //!
-//! Proves: wgpu DX12 + transparent HWND + click-through = viable overlay.
+//! Reference implementation and starting point for custom GLASS overlays.
 //! All core logic lives in `glass-overlay`; this binary is a bootstrap shim.
 //!
 //! Lifecycle:
 //! 1. Init tracing (+ Tracy if `tracy` feature)
-//! 2. Anti-cheat self-check (passive scan; blocks if kernel AC detected)
+//! 2. Anti-cheat self-check (gaming builds only; passive scan; blocks if kernel AC detected)
 //! 3. DPI awareness
 //! 4. Config load + hot-reload watcher
 //! 5. Window + DComp + wgpu init
@@ -17,6 +17,7 @@
 
 mod alloc_tracker;
 
+#[cfg(feature = "gaming")]
 use glass_core::GlassError;
 use glass_overlay::compositor::Compositor;
 use glass_overlay::config::ConfigStore;
@@ -27,8 +28,11 @@ use glass_overlay::modules::fps_counter::FpsCounterModule;
 use glass_overlay::modules::system_stats::SystemStatsModule;
 use glass_overlay::overlay_window;
 use glass_overlay::renderer::Renderer;
+#[cfg(feature = "gaming")]
 use glass_overlay::safety::{AntiCheatDetector, DetectionPolicy};
-use tracing::{error, info, warn};
+use tracing::{error, info};
+#[cfg(feature = "gaming")]
+use tracing::warn;
 
 fn main() {
     // ── Tracing / logging ────────────────────────────────────────────────
@@ -67,19 +71,20 @@ fn main() {
     #[cfg(all(debug_assertions, feature = "alloc-tracking"))]
     alloc_tracker::install();
 
-    info!("GLASS PoC starting");
+    info!("GLASS Starter starting");
 
     match run() {
-        Ok(()) => info!("GLASS PoC exited cleanly"),
+        Ok(()) => info!("GLASS Starter exited cleanly"),
         Err(e) => {
-            error!("GLASS PoC fatal: {e}");
+            error!("GLASS Starter fatal: {e}");
             overlay_window::show_error_dialog("GLASS Fatal Error", &e.to_string());
         }
     }
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    // ── Anti-cheat self-check (before any GPU / window init) ─────────────
+    // ── Anti-cheat self-check (gaming builds only) ───────────────────────
+    #[cfg(feature = "gaming")]
     {
         let detector = AntiCheatDetector::new();
         let result = detector.scan();

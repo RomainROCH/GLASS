@@ -1,10 +1,10 @@
 [package]
-name = "glass-poc"
+name = "glass-starter"
 version = "0.1.0"
 edition.workspace = true
 
 [[bin]]
-name = "glass-poc"
+name = "glass-starter"
 path = "src/main.rs"
 
 [dependencies]
@@ -19,3 +19,4 @@ default = []
 alloc-tracking = []
 test_mode = ["glass-overlay/test_mode"]
 tracy = ["glass-overlay/tracy", "dep:tracing-tracy"]
+gaming = []   # Enables anti-cheat detection at startup

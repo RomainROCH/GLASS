@@ -17,4 +17,34 @@
         interactive_timeout_ms: 4000,       // revert to passive after 4 seconds
         show_indicator: true,               // show border + label when interactive
     ),
+    // ── Module system ──────────────────────────────────────────────────────
+    // Enable or disable individual HUD modules and configure their behaviour.
+    modules: (
+        clock_enabled: true,                // show the clock widget
+        clock_format: "%H:%M:%S",           // strftime-compatible format string
+        system_stats_enabled: true,         // show CPU + memory usage widget
+        stats_interval_ms: 2000,            // system stats refresh interval (ms)
+        fps_enabled: true,                  // show overlay-only FPS counter widget
+    ),
+    // ── Layout system ──────────────────────────────────────────────────────
+    // Anchor-based positioning for each widget.
+    // Anchors: TopLeft | TopRight | BottomLeft | BottomRight | Center | ScreenPercentage(x, y)
+    // margin_x/margin_y: pixel offset inward from the anchor edge.
+    layout: (
+        clock: (
+            anchor: TopLeft,                // clock anchored to top-left corner
+            margin_x: 10.0,                 // 10 px from the left edge
+            margin_y: 10.0,                 // 10 px from the top edge
+        ),
+        system_stats: (
+            anchor: TopLeft,                // stats stacked below the clock
+            margin_x: 10.0,
+            margin_y: 34.0,                 // ~one line below clock (24 px font + gap)
+        ),
+        fps: (
+            anchor: TopLeft,                // FPS counter stacked below stats
+            margin_x: 10.0,
+            margin_y: 60.0,                 // ~two lines below clock
+        ),
+    ),
 )

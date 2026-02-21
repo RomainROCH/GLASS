@@ -3,7 +3,7 @@ resolver = "2"
 members = [
     "glass-core",
     "glass-overlay",
-    "glass-poc",
+    "glass-starter",
 ]
 exclude = [
     "third_party/wgpu",

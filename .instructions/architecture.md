@@ -2,7 +2,7 @@
 
 ## Overview
 
-- **Rust workspace** (`glass-core`, `glass-overlay`, `glass-poc`) targeting Windows x86_64.
+- **Rust workspace** (`glass-core`, `glass-overlay`, `glass-starter`) targeting Windows x86_64.
 - **wgpu v24** via git subtree at `third_party/wgpu/` — managed by `sync_wgpu.py`.
 - **DirectComposition** pipeline for per-pixel-alpha transparent overlay on DX12.
 - `[patch.crates-io]` overrides `wgpu-hal`, `wgpu-types`, `naga` from the subtree.
