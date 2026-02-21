@@ -19,8 +19,21 @@ The fix is **always** `./python` (not `python`, not `python3`, not `py`).
 ## Build
 `/usr/local/bin/cargo` is a wrapper script that calls the Windows `cargo.exe`. It works in both interactive and non-interactive shells (no need to source `~/.bashrc`).
 ```bash
-cargo build --workspace
+cargo build --workspace                              # Build all crates (generic overlay)
+cargo build -p glass-starter                         # Build the starter example only
+cargo build -p glass-starter --features test_mode   # With watermark
+cargo build -p glass-starter --features gaming      # With anti-cheat detection
 ```
+
+## Architecture Quick Ref
+
+- Rust workspace: `glass-core`, `glass-overlay`, `glass-starter`
+- `glass-starter` is the example/entry-point for the generic overlay framework
+- Anti-cheat detection is opt-in via `--features gaming` (not enabled by default)
+- wgpu v24 via git subtree at `third_party/wgpu/` (see `sync_wgpu.py`)
+- `[patch.crates-io]` overrides: `wgpu-hal`, `wgpu-types`, `naga`
+- Windows-only: DirectComposition + DX12 backend
+- Config: RON 0.9 (tuple syntax for arrays)
 
 ## Build Troubleshooting — After a Visual Studio Update
 
