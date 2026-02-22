@@ -55,8 +55,8 @@ glass-starter (binary)
 ### Clone and run
 
 ```sh
-git clone https://github.com/your-org/GLASS-UltimateOverlay
-cd GLASS-UltimateOverlay
+git clone https://github.com/RomainROCH/GLASS
+cd GLASS
 cargo run -p glass-starter
 ```
 
