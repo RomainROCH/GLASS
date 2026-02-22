@@ -35,7 +35,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create the overlay window (fullscreen, topmost, click-through).
     // Pass zero for timeout/hotkey to disable interactive mode.
-    let hwnd = overlay_window::create_overlay_window(0, 0, 0)
+    let hwnd = overlay_window::create_overlay_window(0, 0, 0, "GLASS")
         .map_err(|e| format!("Window: {e}"))?;
 
     // DirectComposition compositor

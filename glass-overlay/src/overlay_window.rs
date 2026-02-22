@@ -79,10 +79,12 @@ pub fn show_error_dialog(title: &str, message: &str) {
 /// * `timeout_ms` — interactive mode timeout in milliseconds.
 /// * `hotkey_vk` — virtual key code for the toggle hotkey (e.g. `0x7B` = F12).
 /// * `hotkey_modifiers` — Win32 `MOD_*` modifier flags (0 = no modifier).
+/// * `app_name` — application name used in window/tray labels.
 pub fn create_overlay_window(
     timeout_ms: u32,
     hotkey_vk: u32,
     hotkey_modifiers: u32,
+    app_name: &str,
 ) -> Result<HWND, glass_core::GlassError> {
     unsafe {
         let hinstance = GetModuleHandleW(None)
@@ -141,13 +143,13 @@ pub fn create_overlay_window(
 
         // Set window title (with [MODE TEST] prefix in test_mode builds)
         {
-            let title = format!("{}GLASS Overlay\0", test_mode::TITLE_PREFIX);
+            let title = format!("{}{} Overlay\0", test_mode::TITLE_PREFIX, app_name);
             let title_wide: Vec<u16> = title.encode_utf16().collect();
             let _ = SetWindowTextW(hwnd, windows::core::PCWSTR(title_wide.as_ptr()));
         }
 
         // Store input state in GWLP_USERDATA for wnd_proc access
-        let input_state = Box::new(OverlayInputState::new(timeout_ms));
+        let input_state = Box::new(OverlayInputState::with_app_name(timeout_ms, app_name));
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(input_state) as isize);
 
         // Register the interactive-mode toggle hotkey (unless test_mode forces passthrough)
@@ -183,14 +185,14 @@ pub fn create_overlay_window(
         );
 
         // System tray icon for clean exit
-        add_tray_icon(hwnd);
+        add_tray_icon(hwnd, app_name);
 
         Ok(hwnd)
     }
 }
 
 /// Add a system tray icon with callback to our overlay window.
-fn add_tray_icon(hwnd: HWND) {
+fn add_tray_icon(hwnd: HWND, app_name: &str) {
     unsafe {
         let icon = LoadIconW(None, IDI_APPLICATION).unwrap_or_default();
 
@@ -204,7 +206,11 @@ fn add_tray_icon(hwnd: HWND) {
             ..Default::default()
         };
 
-        let tip = test_mode::TRAY_TOOLTIP;
+        let tip = format!(
+            "{}{} Overlay — Right-click to quit",
+            test_mode::TITLE_PREFIX,
+            app_name
+        );
         for (i, ch) in tip.encode_utf16().enumerate() {
             if i >= nid.szTip.len() - 1 {
                 break;
@@ -234,10 +240,17 @@ fn remove_tray_icon(hwnd: HWND) {
 }
 
 /// Show context menu at cursor position for tray icon right-click.
-fn show_tray_menu(hwnd: HWND) {
+fn show_tray_menu(hwnd: HWND, app_name: &str) {
     unsafe {
         let menu = CreatePopupMenu().unwrap_or_default();
-        let _ = AppendMenuW(menu, MF_STRING, IDM_EXIT, windows::core::w!("Quit GLASS"));
+        let label = format!("Quit {app_name}\0");
+        let label_wide: Vec<u16> = label.encode_utf16().collect();
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            IDM_EXIT,
+            windows::core::PCWSTR(label_wide.as_ptr()),
+        );
 
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
@@ -374,7 +387,9 @@ unsafe extern "system" fn wnd_proc(
         x if x == WM_TRAYICON => {
             let mouse_msg = lparam.0 as u32;
             if mouse_msg == WM_RBUTTONUP {
-                show_tray_menu(hwnd);
+                if let Some(state) = get_input_state(hwnd) {
+                    show_tray_menu(hwnd, &state.app_name);
+                }
             }
             LRESULT(0)
         }

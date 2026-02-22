@@ -143,6 +143,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         input_cfg.interactive_timeout_ms,
         input_cfg.hotkey_vk,
         input_cfg.hotkey_modifiers,
+        "GLASS",
     ) {
         Ok(h) => h,
         Err(e) => {

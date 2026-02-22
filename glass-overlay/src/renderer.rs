@@ -112,13 +112,15 @@ impl Renderer {
         let (format, color_pipeline) =
             hdr::choose_surface_format(&caps.formats, hdr_result.capability, force_sdr);
 
-        let alpha_mode = if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::PreMultiplied) {
-            wgpu::CompositeAlphaMode::PreMultiplied
-        } else if caps.alpha_modes.contains(&wgpu::CompositeAlphaMode::Auto) {
-            wgpu::CompositeAlphaMode::Auto
-        } else {
-            caps.alpha_modes[0]
-        };
+        if !caps
+            .alpha_modes
+            .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+        {
+            return Err(GlassError::WgpuInit(
+                "Surface missing CompositeAlphaMode::PreMultiplied".into(),
+            ));
+        }
+        let alpha_mode = wgpu::CompositeAlphaMode::PreMultiplied;
 
         info!("Using format: {format:?}, alpha_mode: {alpha_mode:?}");
 

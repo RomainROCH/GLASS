@@ -183,17 +183,25 @@ pub struct OverlayInputState {
     pub interactive_since: Option<Instant>,
     /// Whether interactive mode is available (hotkey registered successfully).
     pub interactivity_available: bool,
+    /// Application name used in tray UI labels.
+    pub app_name: String,
 }
 
 impl OverlayInputState {
     /// Create a new input state in passive mode.
     pub fn new(timeout_ms: u32) -> Self {
+        Self::with_app_name(timeout_ms, "GLASS")
+    }
+
+    /// Create a new input state in passive mode with a custom app name.
+    pub fn with_app_name(timeout_ms: u32, app_name: &str) -> Self {
         Self {
             mode: InputMode::Passive,
             hit_tester: HitTester::new(),
             timeout: Duration::from_millis(timeout_ms as u64),
             interactive_since: None,
             interactivity_available: true,
+            app_name: app_name.to_string(),
         }
     }
 
