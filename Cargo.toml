@@ -81,10 +81,13 @@ chrono = "0.4"
 # Our fork in third_party/wgpu adds PreMultiplied support for
 # DirectComposition / SurfaceHandle / SwapChainPanel targets.
 #
+# wgpu-core is patched as well so capability handling can be adjusted
+# alongside the DX12 HAL changes.
 # wgpu-types must also be patched so that wgpu-hal (which resolves
-# wgpu-types via its workspace) and wgpu-core (from crates.io) use
-# the exact same wgpu-types crate — avoiding duplicate type errors.
+# wgpu-types via its workspace) and wgpu-core use the exact same
+# wgpu-types crate — avoiding duplicate type errors.
 [patch.crates-io]
+wgpu-core  = { path = "third_party/wgpu/wgpu-core" }
 wgpu-hal   = { path = "third_party/wgpu/wgpu-hal" }
 wgpu-types = { path = "third_party/wgpu/wgpu-types" }
 naga       = { path = "third_party/wgpu/naga" }

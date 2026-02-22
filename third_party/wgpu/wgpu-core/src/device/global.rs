@@ -36,6 +36,19 @@ use std::{
 
 use super::{ImplicitPipelineIds, UserClosures};
 
+fn patch_dx12_composition_alpha(
+    backend: wgt::Backend,
+    caps: &mut hal::SurfaceCapabilities,
+) {
+    if backend == wgt::Backend::Dx12
+        && caps.current_extent.is_none()
+        && caps.composite_alpha_modes == [wgt::CompositeAlphaMode::Opaque]
+    {
+        caps.composite_alpha_modes
+            .insert(0, wgt::CompositeAlphaMode::PreMultiplied);
+    }
+}
+
 impl Global {
     pub fn adapter_is_surface_supported(
         &self,
@@ -55,6 +68,7 @@ impl Global {
         profiling::scope!("Surface::get_capabilities");
         self.fetch_adapter_and_surface::<_, _>(surface_id, adapter_id, |adapter, surface| {
             let mut hal_caps = surface.get_capabilities(adapter)?;
+            patch_dx12_composition_alpha(adapter.backend(), &mut hal_caps);
 
             hal_caps.formats.sort_by_key(|f| !f.is_srgb());
 
@@ -1804,10 +1818,11 @@ impl Global {
 
                 let surface = self.surfaces.get(surface_id);
 
-                let caps = match surface.get_capabilities(&device.adapter) {
+                let mut caps = match surface.get_capabilities(&device.adapter) {
                     Ok(caps) => caps,
                     Err(_) => break 'error E::UnsupportedQueueFamily,
                 };
+                patch_dx12_composition_alpha(device.backend(), &mut caps);
 
                 let mut hal_view_formats = vec![];
                 for format in config.view_formats.iter() {

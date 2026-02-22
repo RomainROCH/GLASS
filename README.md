@@ -242,7 +242,7 @@ cargo build -p glass-starter --features "test_mode,alloc-tracking"
 
 `wgpu-hal` 24.x hardcodes `DXGI_ALPHA_MODE_IGNORE` in `CreateSwapChainForComposition`, making the swapchain opaque regardless of the `alpha_mode` field in `SurfaceConfiguration`. The overlay's premultiplied alpha blending requires `DXGI_ALPHA_MODE_PREMULTIPLIED`.
 
-GLASS ships a git-subtree copy of wgpu at `third_party/wgpu/` that patches `wgpu-hal` to honour `CompositeAlphaMode::PreMultiplied` on composition swapchains. `wgpu-types` and `naga` are also included to ensure the entire set resolves to identical types (avoiding "multiple versions of the same crate" linker errors). The `[patch.crates-io]` section in the root `Cargo.toml` activates these overrides transparently.
+GLASS ships a git-subtree copy of wgpu at `third_party/wgpu/` that patches `wgpu-hal` and `wgpu-core` so composition swapchains honour and expose `CompositeAlphaMode::PreMultiplied`. `wgpu-types` and `naga` are also included to ensure the entire set resolves to identical types (avoiding "multiple versions of the same crate" linker errors). The `[patch.crates-io]` section in the root `Cargo.toml` activates these overrides transparently.
 
 ### DirectComposition pipeline
 
