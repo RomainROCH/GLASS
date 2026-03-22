@@ -21,6 +21,19 @@ use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
 /// Timer ID used for periodic module updates in the message loop.
 pub const MODULE_UPDATE_TIMER_ID: usize = 43;
 
+/// DirectComposition-backed surfaces must support premultiplied alpha for GLASS.
+fn select_composition_alpha_mode(
+    alpha_modes: &[wgpu::CompositeAlphaMode],
+) -> Result<wgpu::CompositeAlphaMode, GlassError> {
+    if alpha_modes.contains(&wgpu::CompositeAlphaMode::PreMultiplied) {
+        Ok(wgpu::CompositeAlphaMode::PreMultiplied)
+    } else {
+        Err(GlassError::WgpuInit(
+            "Surface missing CompositeAlphaMode::PreMultiplied".into(),
+        ))
+    }
+}
+
 /// Low-level GPU backend wrapper for wgpu/DX12 draw submission.
 ///
 /// Encapsulates GPU initialization, swapchain presentation, and rendering.
@@ -112,15 +125,7 @@ impl Renderer {
         let (format, color_pipeline) =
             hdr::choose_surface_format(&caps.formats, hdr_result.capability, force_sdr);
 
-        if !caps
-            .alpha_modes
-            .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
-        {
-            return Err(GlassError::WgpuInit(
-                "Surface missing CompositeAlphaMode::PreMultiplied".into(),
-            ));
-        }
-        let alpha_mode = wgpu::CompositeAlphaMode::PreMultiplied;
+        let alpha_mode = select_composition_alpha_mode(&caps.alpha_modes)?;
 
         info!("Using format: {format:?}, alpha_mode: {alpha_mode:?}");
 
@@ -297,5 +302,40 @@ impl Renderer {
     /// Get a read-only reference to the scene graph.
     pub fn scene(&self) -> &Scene {
         &self.scene
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::select_composition_alpha_mode;
+    use glass_core::GlassError;
+
+    #[test]
+    fn selects_premultiplied_alpha_mode_when_supported() {
+        let alpha_mode = select_composition_alpha_mode(&[
+            wgpu::CompositeAlphaMode::Opaque,
+            wgpu::CompositeAlphaMode::PreMultiplied,
+            wgpu::CompositeAlphaMode::PostMultiplied,
+        ])
+        .expect("premultiplied alpha mode should be selected");
+
+        assert_eq!(alpha_mode, wgpu::CompositeAlphaMode::PreMultiplied);
+    }
+
+    #[test]
+    fn rejects_surface_without_premultiplied_alpha_mode() {
+        let err = select_composition_alpha_mode(&[
+            wgpu::CompositeAlphaMode::Opaque,
+            wgpu::CompositeAlphaMode::PostMultiplied,
+            wgpu::CompositeAlphaMode::Inherit,
+        ])
+        .expect_err("surface without premultiplied alpha must fail");
+
+        match err {
+            GlassError::WgpuInit(msg) => {
+                assert_eq!(msg, "Surface missing CompositeAlphaMode::PreMultiplied");
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 }
