@@ -1,8 +1,11 @@
 // GLASS Overlay configuration (RON format)
-// Edit this file and save — changes are hot-reloaded automatically.
+// Edit this file and save — watched apps can reload updated config snapshots automatically.
 //
-// Supported formats: .ron and .toml
-// Default path: config.ron (in working directory)
+// glass-starter uses config.ron in the working directory by default and watches it,
+// and the reference starter currently applies the fields it wires: input hotkey/timeout
+// behavior, modules, and layout. position, size, opacity, and input.show_indicator are
+// stored config values today, but are not applied by the reference starter runtime.
+// Library consumers can choose their own config path; ConfigStore::load(...) supports both .ron and .toml.
 (
     position: (x: 20.0, y: 20.0),
     size: (width: 360.0, height: 60.0),
@@ -15,7 +18,7 @@
         hotkey_vk: 0x7B,                   // F12 — toggle interactive mode
         hotkey_modifiers: 0,                // no modifier (0=none, 1=Alt, 2=Ctrl, 4=Shift, 8=Win)
         interactive_timeout_ms: 4000,       // revert to passive after 4 seconds
-        show_indicator: true,               // show border + label when interactive
+        show_indicator: true,               // stored indicator flag; not currently applied by the reference starter runtime
     ),
     // ── Module system ──────────────────────────────────────────────────────
     // Enable or disable individual HUD modules and configure their behaviour.
