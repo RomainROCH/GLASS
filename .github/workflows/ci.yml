@@ -124,6 +124,9 @@ jobs:
       - name: Check default (no features)
         run: cargo check --workspace
 
+      - name: Check minimal starter example
+        run: cargo check -p glass-starter --example minimal
+
       - name: Check test_mode
         run: cargo check --workspace --features test_mode
 
