@@ -9,11 +9,8 @@
 //! cargo run --example minimal -p glass-starter
 //! ```
 
-use glass_overlay::compositor::Compositor;
-use glass_overlay::input::InputManager;
-use glass_overlay::layout::LayoutManager;
+use glass_overlay::{Compositor, InputManager, LayoutManager, Renderer};
 use glass_overlay::overlay_window;
-use glass_overlay::renderer::Renderer;
 
 fn main() {
     tracing_subscriber::fmt()
