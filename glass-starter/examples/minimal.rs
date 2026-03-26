@@ -9,7 +9,7 @@
 //! cargo run --example minimal -p glass-starter
 //! ```
 
-use glass_overlay::{Compositor, InputManager, LayoutManager, Renderer};
+use glass_overlay::{Compositor, GlassError, InputManager, LayoutManager, Renderer};
 use glass_overlay::overlay_window;
 
 fn main() {
@@ -26,22 +26,22 @@ fn main() {
     }
 }
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
+fn run() -> Result<(), GlassError> {
     // DPI awareness — must come before window creation
     overlay_window::set_dpi_awareness();
 
     // Create the overlay window (fullscreen, topmost, click-through).
     // Pass zero for timeout/hotkey to disable interactive mode.
     let hwnd = overlay_window::create_overlay_window(0, 0, 0, "GLASS")
-        .map_err(|e| format!("Window: {e}"))?;
+        .map_err(|e| GlassError::WindowCreation(e.to_string()))?;
 
     // DirectComposition compositor
     let dcomp = Compositor::new(hwnd)
-        .map_err(|e| format!("DComp: {e}"))?;
+        .map_err(|e| GlassError::CompositionInit(e.to_string()))?;
 
     // wgpu DX12 renderer
     let mut renderer = Renderer::new(dcomp.visual_handle(), hwnd)
-        .map_err(|e| format!("Renderer: {e}"))?;
+        .map_err(|e| GlassError::WgpuInit(e.to_string()))?;
     // Example: draw a triangle — replace with your own render logic
     // const SHADER_SRC: &str = r#"
     // struct VertexOutput {
