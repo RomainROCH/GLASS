@@ -2,13 +2,55 @@
 
 A transparent, DPI-aware, DX12-accelerated overlay framework for Windows built on [wgpu](https://wgpu.rs/) and DirectComposition.
 
+## Start here
+
+If you are seeing GLASS for the first time, pick the shortest path that matches what you want to do:
+
+| Path | Use this when you want to... | Command / next step |
+|------|-------------------------------|---------------------|
+| Run the reference app | See the full framework wired together with built-in widgets and config watching | `cargo run -p glass-starter` |
+| Run the smallest integration | Inspect the bare-minimum overlay bootstrap with no config or modules | `cargo run --example minimal -p glass-starter` |
+| Build your own app | Use the library directly and keep only the pieces you need | Start with [`glass-overlay`](glass-overlay/) and [`docs/library-consumer.md`](docs/library-consumer.md) |
+| Add a module/widget | Extend the overlay with your own HUD element | See [`docs/module-authoring.md`](docs/module-authoring.md) |
+
+### `glass-starter` vs `glass-overlay`
+
+- **`glass-starter`** is the reference application. It is the fastest way to run GLASS as-is and see config loading, built-in modules, layout, input handling, and the message loop working together.
+- **`glass-overlay`** is the reusable library crate. Use it when you want to build your own overlay binary, choose your own config path/format, and register your own modules.
+
+If you only read one code example first, read **[`glass-starter/examples/minimal.rs`](glass-starter/examples/minimal.rs)**. It is the canonical smallest GLASS integration.
+
+### Library consumer snippet
+
+Start from the crate root re-exports rather than deep module paths:
+
+```toml
+[dependencies]
+glass-overlay = { path = "../glass-overlay" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+```
+
+```rust
+use glass_overlay::{
+    overlay_window, Compositor, ConfigStore, InputManager, LayoutManager, Renderer,
+    WidgetWrapper,
+};
+```
+
+More onboarding docs:
+
+- [`docs/index.md`](docs/index.md)
+- [`docs/getting-started.md`](docs/getting-started.md)
+- [`docs/library-consumer.md`](docs/library-consumer.md)
+- [`docs/module-authoring.md`](docs/module-authoring.md)
+
 ## Features
 
 - **True per-pixel alpha** via DirectComposition + `DXGI_ALPHA_MODE_PREMULTIPLIED` — no faked transparency
 - **wgpu DX12 backend** with a retained scene graph; re-renders only on explicit invalidation
 - **Zero-allocation steady state** — no heap allocations or GPU buffer uploads when the scene is unchanged
 - **Anchor-based layout** — position widgets relative to screen corners, center, or arbitrary percentages
-- **Hot-reloadable config** — edit `config.ron` or `config.toml` while the overlay is running; changes apply instantly
+- **Hot-reloadable config snapshots** — `ConfigStore::watch()` reloads file changes into the store; `glass-starter` watches `config.ron` by default, but whether a running app reflects changes immediately depends on how it consumes `ConfigStore`
 - **Passive / interactive input modes** — default is fully click-through; a global hotkey toggles interactive mode with rect-based hit-testing
 - **Module system** — composable HUD modules (`OverlayModule` trait) with init / update / deinit lifecycle
 - **Built-in modules**: clock, CPU + memory stats, FPS counter
@@ -60,7 +102,22 @@ cd GLASS
 cargo run -p glass-starter
 ```
 
-A `config.ron` is created automatically with defaults on first run.
+The reference starter loads `config.ron` by default and creates it with defaults on first run.
+
+### Smallest possible GLASS run
+
+```sh
+cargo run --example minimal -p glass-starter
+```
+
+This example is intentionally tiny:
+
+- creates the transparent overlay window
+- initializes DirectComposition + the DX12 renderer
+- renders a first frame
+- enters the message loop
+
+It does **not** set up config, built-in widgets, or starter-specific app behavior, which makes it the best first file to inspect when embedding GLASS in another application.
 
 ### Build all crates
 
@@ -76,18 +133,26 @@ cargo build -p glass-starter --features test_mode
 
 ## Creating Your Own Module
 
-Implement the `OverlayModule` trait from `glass_overlay::modules`:
+Implement the `OverlayModule` trait. For a compact authoring guide, see [`docs/module-authoring.md`](docs/module-authoring.md).
 
 ```rust
-use glass_overlay::modules::{ModuleInfo, OverlayModule};
-use glass_overlay::scene::{Color, Scene, TextProps};
+use glass_overlay::{Color, ModuleInfo, NodeId, OverlayModule, Scene, TextProps};
+use std::time::Duration;
+```
+
+Then wire it into layout with `WidgetWrapper`.
+
+Full example:
+
+```rust
+use glass_overlay::{Color, ModuleInfo, NodeId, OverlayModule, Scene, TextProps};
 use std::time::Duration;
 
 pub struct MyModule {
     enabled: bool,
     x: f32,
     y: f32,
-    node_ids: Vec<glass_overlay::scene::NodeId>,
+    node_ids: Vec<NodeId>,
 }
 
 impl OverlayModule for MyModule {
@@ -139,6 +204,8 @@ impl OverlayModule for MyModule {
 Then register it in `glass-starter/src/main.rs`:
 
 ```rust
+use glass_overlay::{Anchor, WidgetWrapper};
+
 layout_manager.add_widget(WidgetWrapper::new(
     MyModule { enabled: true, x: 0.0, y: 0.0, node_ids: vec![] },
     Anchor::TopRight,
@@ -159,7 +226,14 @@ layout_manager.add_widget(WidgetWrapper::new(
 
 ## Configuration
 
-The overlay reads `config.ron` (or `config.toml`) from the working directory. The file is created with defaults if it does not exist. Changes are applied live — no restart needed.
+`glass-starter` loads `config.ron` from the working directory by default and creates it with defaults if it does not exist.
+
+If you are building your own app with `glass-overlay`, `ConfigStore::load(...)` accepts either a `.ron` or `.toml` path and selects the parser from the extension you pass in. The format is not fixed by the library; it depends on the path you supply. In other words:
+
+- `ConfigStore::load("config.ron")` → RON
+- `ConfigStore::load("config.toml")` → TOML
+
+For live reload, call `ConfigStore::watch()` after `ConfigStore::load(...)`. `glass-starter` already does this for `config.ron`, so edits are reloaded into `ConfigStore` without a restart. Whether a change affects live runtime behavior still depends on what the app re-reads and reapplies from the store.
 
 ```ron
 // config.ron
@@ -175,7 +249,7 @@ The overlay reads `config.ron` (or `config.toml`) from the working directory. Th
         hotkey_vk:             0x7B,   // F12 — toggle interactive mode
         hotkey_modifiers:      0,      // 0=none  1=Alt  2=Ctrl  4=Shift  8=Win
         interactive_timeout_ms: 4000,  // revert to passive after 4 s
-        show_indicator:        true,   // border + label in interactive mode
+        show_indicator:        true,   // stored flag for interactive indicator; not currently applied by the reference starter runtime
     ),
     modules: (
         clock_enabled:          true,
@@ -185,26 +259,28 @@ The overlay reads `config.ron` (or `config.toml`) from the working directory. Th
         fps_enabled:            true,
     ),
     layout: (
-        clock:        (anchor: TopLeft,     margin_x: 20.0, margin_y: 20.0),
-        system_stats: (anchor: TopLeft,     margin_x: 20.0, margin_y: 44.0),
-        fps:          (anchor: BottomRight, margin_x: 20.0, margin_y: 20.0),
+        clock:        (anchor: TopLeft, margin_x: 10.0, margin_y: 10.0),
+        system_stats: (anchor: TopLeft, margin_x: 10.0, margin_y: 34.0),
+        fps:          (anchor: TopLeft, margin_x: 10.0, margin_y: 60.0),
     ),
 )
 ```
 
 ### Config field reference
 
+> Note: the current starter/runtime reads `position`, `size`, and `opacity` from config, but does not yet apply them to window creation or window opacity. The starter window is still created fullscreen; active starter behavior is currently driven by `input`, `modules`, and `layout`.
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `position` | `{x, y}` | Initial window offset (logical pixels) |
-| `size` | `{width, height}` | Overlay window dimensions (logical pixels) |
-| `opacity` | `f32 [0, 1]` | Overall window opacity |
+| `position` | `{x, y}` | Stored config value for window offset (logical pixels); not currently applied by `glass-starter` |
+| `size` | `{width, height}` | Stored config value for window dimensions (logical pixels); not currently applied by `glass-starter` |
+| `opacity` | `f32 [0, 1]` | Stored overall opacity value; validated on load but not currently applied to starter window opacity |
 | `colors.primary` | RGBA tuple | Background / primary colour |
 | `colors.secondary` | RGBA tuple | Text / secondary colour |
 | `input.hotkey_vk` | `u32` | Win32 virtual key code for interactive-mode toggle |
 | `input.hotkey_modifiers` | `u32` | Win32 `MOD_*` bitmask (Alt=1, Ctrl=2, Shift=4, Win=8) |
 | `input.interactive_timeout_ms` | `u32` | Milliseconds before reverting to passive mode |
-| `input.show_indicator` | `bool` | Show visual border + label in interactive mode |
+| `input.show_indicator` | `bool` | Stored config flag for the interactive border + label indicator; not currently applied by `glass-starter` |
 | `modules.clock_enabled` | `bool` | Enable the clock widget |
 | `modules.clock_format` | `String` | strftime-compatible format string |
 | `modules.system_stats_enabled` | `bool` | Enable CPU + memory widget |
