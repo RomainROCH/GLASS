@@ -1,9 +1,15 @@
 //! Overlay module system: composable HUD modules with runtime toggle and config.
 //!
-//! Each module implements [`OverlayModule`] and is registered in the
-//! [`ModuleRegistry`]. Modules produce scene-graph nodes that the renderer
-//! draws. Module state (enabled/disabled + per-module config) is persisted
-//! via the hot-reload config system.
+//! Most applications should use built-in modules through
+//! [`crate::LayoutManager`] + [`crate::WidgetWrapper`], which handle positioning
+//! and lifecycle together.
+//!
+//! [`ModuleRegistry`] is the lower-level/manual path for applications that want
+//! to manage a flat set of modules directly without the layout system.
+//!
+//! Modules produce scene-graph nodes that the renderer draws. Module state
+//! (enabled/disabled + per-module config) is persisted via the hot-reload
+//! config system.
 //!
 //! # Built-in Modules
 //! - [`clock`] — Local clock with configurable format
@@ -13,6 +19,10 @@
 pub mod clock;
 pub mod fps_counter;
 pub mod system_stats;
+
+pub use clock::ClockModule;
+pub use fps_counter::FpsCounterModule;
+pub use system_stats::SystemStatsModule;
 
 use crate::scene::{NodeId, Scene};
 use serde::{Deserialize, Serialize};

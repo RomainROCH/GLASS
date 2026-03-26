@@ -9,23 +9,19 @@
 //! 3. DPI awareness
 //! 4. Config load + hot-reload watcher
 //! 5. Window + DComp + wgpu init
-//! 6. Module registry setup (clock, system stats, FPS counter)
+//! 6. Layout manager + widget wrapper setup for built-in modules/widgets
 //! 7. Message loop (retained rendering + module ticks)
 //!
 //! Input modes: passive (default) ↔ interactive (hotkey toggle).
 //! In test_mode builds, interactive mode is forcibly disabled.
 
 #[cfg(feature = "gaming")]
-use glass_core::GlassError;
-use glass_overlay::compositor::Compositor;
-use glass_overlay::config::ConfigStore;
-use glass_overlay::input::InputManager;
-use glass_overlay::layout::{LayoutManager, WidgetWrapper};
-use glass_overlay::modules::clock::ClockModule;
-use glass_overlay::modules::fps_counter::FpsCounterModule;
-use glass_overlay::modules::system_stats::SystemStatsModule;
+use glass_overlay::GlassError;
+use glass_overlay::{
+    ClockModule, Compositor, ConfigStore, FpsCounterModule, InputManager, LayoutManager, Renderer,
+    SystemStatsModule, WidgetWrapper,
+};
 use glass_overlay::overlay_window;
-use glass_overlay::renderer::Renderer;
 #[cfg(feature = "gaming")]
 use glass_overlay::safety::{AntiCheatDetector, DetectionPolicy};
 use tracing::{error, info};
