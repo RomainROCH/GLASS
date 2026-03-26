@@ -50,7 +50,7 @@ More onboarding docs:
 - **wgpu DX12 backend** with a retained scene graph; re-renders only on explicit invalidation
 - **Zero-allocation steady state** — no heap allocations or GPU buffer uploads when the scene is unchanged
 - **Anchor-based layout** — position widgets relative to screen corners, center, or arbitrary percentages
-- **Hot-reloadable config snapshots** — `ConfigStore::watch()` reloads file changes into the store; `glass-starter` watches `config.ron` by default, but whether a running app reflects changes immediately depends on how it consumes `ConfigStore`
+- **Hot-reloadable config snapshots** — `ConfigStore::watch()` reloads file changes into the store; apps must re-read and reapply config for runtime behavior to change, and the reference `glass-starter` does not currently do that after startup
 - **Passive / interactive input modes** — default is fully click-through; a global hotkey toggles interactive mode with rect-based hit-testing
 - **Module system** — composable HUD modules (`OverlayModule` trait) with init / update / deinit lifecycle
 - **Built-in modules**: clock, CPU + memory stats, FPS counter
@@ -233,7 +233,7 @@ If you are building your own app with `glass-overlay`, `ConfigStore::load(...)` 
 - `ConfigStore::load("config.ron")` → RON
 - `ConfigStore::load("config.toml")` → TOML
 
-For live reload, call `ConfigStore::watch()` after `ConfigStore::load(...)`. `glass-starter` already does this for `config.ron`, so edits are reloaded into `ConfigStore` without a restart. Whether a change affects live runtime behavior still depends on what the app re-reads and reapplies from the store.
+For live reload, call `ConfigStore::watch()` after `ConfigStore::load(...)`. `glass-starter` already does this for `config.ron`, so edits are reloaded into `ConfigStore` without a restart. Runtime behavior only changes if the app re-reads and reapplies the new snapshot; the reference starter does not currently do that after startup.
 
 ```ron
 // config.ron

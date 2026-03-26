@@ -45,6 +45,8 @@ When you run `glass-starter`:
 
 When you run the `minimal` example, there is no config or widget setup. It just boots the overlay runtime with the smallest amount of code.
 
+`ConfigStore::watch()` only refreshes the stored snapshot. A running app must re-read and reapply config for behavior to change. The reference starter does not currently re-read or reapply watched config after startup, so edits to `config.ron` do not change runtime behavior until restart.
+
 The current starter consumes the config fields it actually wires: input hotkey/timeout behavior, modules, and layout. `position`, `size`, `opacity`, and `input.show_indicator` are currently stored schema values only and are not applied by the reference starter runtime, including after restart.
 
 ## Where config lives
