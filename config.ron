@@ -1,10 +1,9 @@
 // GLASS Overlay configuration (RON format)
 // Edit this file and save — watched apps can reload updated config snapshots automatically.
 //
+// Runtime behavior changes only when an app re-reads and reapplies the updated snapshot.
 // glass-starter uses config.ron in the working directory by default and watches it,
-// and the reference starter currently applies the fields it wires: input hotkey/timeout
-// behavior, modules, and layout. position, size, opacity, and input.show_indicator are
-// stored config values today, but are not applied by the reference starter runtime.
+// but the reference starter does not currently re-read/reapply watched config after startup.
 // Library consumers can choose their own config path; ConfigStore::load(...) supports both .ron and .toml.
 (
     position: (x: 20.0, y: 20.0),
