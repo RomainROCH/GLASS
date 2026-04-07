@@ -1,6 +1,6 @@
 ---
 created: 2026-03-26
-updated: 2026-03-26
+updated: 2026-04-07
 category: user
 status: active
 doc_kind: guide
@@ -8,72 +8,63 @@ doc_kind: guide
 
 # Getting started
 
-This page is the quickest way to get from clone to a running GLASS overlay.
+This is the fastest path from `git clone` to a running GLASS overlay.
 
-## Prerequisites
+## Requirements
 
-- Windows 10 1903+ with DirectComposition and DX12 support
+- Windows 10 or Windows 11
+- A system with DirectComposition and DX12 support
 - Rust stable 1.85+
-- MSVC Build Tools
+- MSVC build tools
 
-## Run the reference starter
+GLASS is Windows-only because it depends on Win32 windowing, DirectComposition, and a DX12 `wgpu` backend.
+
+## Quick start
 
 ```sh
+git clone https://github.com/RomainROCH/GLASS
+cd GLASS
+cargo build --workspace
 cargo run -p glass-starter
 ```
 
-Use this when you want the full reference app: config loading, built-in modules, layout, input handling, and the normal message loop.
+## What you should see
 
-## Run the minimal example
+On a default run, `glass-starter` creates a transparent fullscreen overlay and renders the built-in modules from `config.ron`:
+
+- a clock
+- system CPU/RAM stats
+- an FPS counter
+
+The starter also demonstrates the current temperature injection pattern. Its placeholder callback returns no value, so the system stats module shows `temp: N/A` until your own app provides a real temperature source.
+
+The overlay starts in passive click-through mode. A hotkey can switch it into interactive mode using the values loaded from `config.ron`.
+
+## First-run behavior
+
+When `glass-starter` starts, it:
+
+1. enables DPI awareness
+2. loads `config.ron`
+3. creates `config.ron` with defaults if it does not exist yet
+4. starts a config watcher
+5. creates the overlay window, DirectComposition compositor, renderer, layout manager, and built-in modules
+6. renders once and enters the message loop
+
+`ConfigStore::watch()` refreshes the stored config snapshot, but the running app must still re-read and reapply that snapshot for behavior to change. The reference starter does not currently reapply watched config after startup.
+
+## Smallest example
+
+If you want the minimum possible integration, run:
 
 ```sh
 cargo run --example minimal -p glass-starter
 ```
 
-Use this when you want the smallest possible GLASS integration. This example is the best first code file to inspect if you are embedding GLASS into another app.
+That example only creates the window, compositor, renderer, minimal input/layout state, renders once, and enters the message loop.
 
-## What happens on first run
+## Next steps
 
-When you run `glass-starter`:
-
-1. tracing/logging is initialized
-2. the process is marked DPI-aware
-3. `config.ron` is loaded from the current working directory
-4. if `config.ron` does not exist yet, it is created with defaults
-5. the config watcher starts so updated config snapshots are reloaded into `ConfigStore`
-6. the overlay window, DirectComposition compositor, renderer, layout manager, and built-in widgets are initialized
-
-When you run the `minimal` example, there is no config or widget setup. It just boots the overlay runtime with the smallest amount of code.
-
-`ConfigStore::watch()` only refreshes the stored snapshot. A running app must re-read and reapply config for behavior to change. The reference starter does not currently re-read or reapply watched config after startup, so edits to `config.ron` do not change runtime behavior until restart.
-
-The current starter consumes the config fields it actually wires: input hotkey/timeout behavior, modules, and layout. `position`, `size`, `opacity`, and `input.show_indicator` are currently stored schema values only and are not applied by the reference starter runtime, including after restart.
-
-## Where config lives
-
-- **Reference starter:** `config.ron` in the working directory by default
-- **Library consumers:** you choose the path and format by calling `ConfigStore::load(...)`
-
-Examples:
-
-```rust
-use glass_overlay::ConfigStore;
-
-let ron = ConfigStore::load("config.ron")?;
-let toml = ConfigStore::load("config.toml")?;
-```
-
-The format is selected from the file extension.
-
-## Common first things to inspect
-
-- [`../glass-starter/examples/minimal.rs`](../glass-starter/examples/minimal.rs) — smallest integration
-- [`../glass-starter/src/main.rs`](../glass-starter/src/main.rs) — full reference bootstrap
-- [`../glass-overlay/src/lib.rs`](../glass-overlay/src/lib.rs) — recommended crate-root imports
-- [`../config.ron`](../config.ron) — starter config shape and defaults
-
-## Next docs
-
-- Building your own app → [`library-consumer.md`](library-consumer.md)
-- Adding your own module → [`module-authoring.md`](module-authoring.md)
-- Repository overview → [`../README.md`](../README.md)
+- Build your own app with the library: [`library-consumer.md`](library-consumer.md)
+- Write a custom module: [`module-authoring.md`](module-authoring.md)
+- Review the project overview: [`../README.md`](../README.md)
