@@ -23,8 +23,11 @@ pub enum DisplayCapability {
 /// Result of HDR detection for a specific output.
 #[derive(Debug, Clone)]
 pub struct HdrDetectionResult {
+    /// Detected display capability (HDR, SDR, or Unknown).
     pub capability: DisplayCapability,
+    /// Human-readable color space string reported by DXGI (e.g. `"DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020"`).
     pub color_space: String,
+    /// Display output device name as reported by DXGI (e.g. `"\\\\.\\DISPLAY1"`).
     pub output_name: String,
 }
 

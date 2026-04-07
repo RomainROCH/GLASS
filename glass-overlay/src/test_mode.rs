@@ -13,6 +13,9 @@
 /// Whether the current build has test mode enabled.
 #[cfg(feature = "test_mode")]
 pub const TEST_MODE: bool = true;
+/// Whether the current build has test mode enabled.
+///
+/// `false` in standard builds; set to `true` when the `test_mode` feature is active.
 #[cfg(not(feature = "test_mode"))]
 pub const TEST_MODE: bool = false;
 
@@ -32,17 +35,26 @@ pub const WATERMARK_FONT_SIZE: f32 = 14.0;
 /// Interactive hotkeys are ignored in test mode.
 #[cfg(feature = "test_mode")]
 pub const FORCE_INPUT_PASSTHROUGH: bool = true;
+/// When true, input passthrough is forced regardless of config.
+///
+/// Always `false` in standard builds; `true` when the `test_mode` feature is active.
 #[cfg(not(feature = "test_mode"))]
 pub const FORCE_INPUT_PASSTHROUGH: bool = false;
 
 /// Window title prefix for test mode builds.
 #[cfg(feature = "test_mode")]
 pub const TITLE_PREFIX: &str = "[MODE TEST] ";
+/// Window title prefix.
+///
+/// Empty string in standard builds; `"[MODE TEST] "` when the `test_mode` feature is active.
 #[cfg(not(feature = "test_mode"))]
 pub const TITLE_PREFIX: &str = "";
 
 /// Tray tooltip for test mode.
 #[cfg(feature = "test_mode")]
 pub const TRAY_TOOLTIP: &str = "[MODE TEST] GLASS Overlay \u{2014} Right-click to quit";
+/// System tray tooltip text.
+///
+/// Standard text in normal builds; prefixed with `[MODE TEST]` when the `test_mode` feature is active.
 #[cfg(not(feature = "test_mode"))]
 pub const TRAY_TOOLTIP: &str = "GLASS Overlay \u{2014} Right-click to quit";

@@ -39,7 +39,9 @@ impl Default for Rgba {
 /// 2D position in logical (DPI-independent) pixels.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Position {
+    /// Horizontal coordinate in logical pixels.
     pub x: f32,
+    /// Vertical coordinate in logical pixels.
     pub y: f32,
 }
 
@@ -52,7 +54,9 @@ impl Default for Position {
 /// 2D size in logical (DPI-independent) pixels.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Size {
+    /// Width in logical pixels.
     pub width: f32,
+    /// Height in logical pixels.
     pub height: f32,
 }
 
@@ -131,13 +135,16 @@ impl Default for InputConfig {
 /// Fields are validated on load — out-of-range values are clamped and logged.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OverlayConfig {
+    /// Initial overlay window position in logical pixels.
     #[serde(default)]
     pub position: Position,
+    /// Overlay window size in logical pixels.
     #[serde(default)]
     pub size: Size,
     /// Opacity in `[0.0, 1.0]`. Values outside this range are clamped.
     #[serde(default = "default_opacity")]
     pub opacity: f32,
+    /// Colour palette for overlay elements.
     #[serde(default)]
     pub colors: Colors,
     /// Input mode configuration (hotkey, timeout, indicator).
