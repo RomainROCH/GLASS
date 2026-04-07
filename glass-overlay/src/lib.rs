@@ -40,7 +40,7 @@
 //! - [`modules`] for manual module registration via [`modules::ModuleRegistry`]
 //! - [`scene`] for direct retained scene-graph manipulation
 //! - [`compositor`], [`renderer`], and [`overlay_window`] for lower-level runtime setup
-//! - [`safety`] for gaming-specific anti-cheat checks when the feature is enabled
+//! - `safety` for gaming-specific anti-cheat checks when the feature is enabled
 
 pub mod compositor;
 pub mod config;

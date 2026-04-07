@@ -2,7 +2,7 @@
 //!
 //! Creates a topmost, click-through, non-activatable HWND using
 //! `WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOREDIRECTIONBITMAP`.
-//! All visual content comes from DirectComposition (see [`Compositor`]).
+//! All visual content comes from DirectComposition (see [`crate::Compositor`]).
 //!
 //! Supports two input modes:
 //! - **Passive (Mode A)** — default; fully click-through.

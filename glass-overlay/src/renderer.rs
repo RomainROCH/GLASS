@@ -77,7 +77,8 @@ impl Renderer {
     /// Initialize the wgpu DX12 renderer bound to a DirectComposition visual.
     ///
     /// # Arguments
-    /// * `visual` — pointer to `IDCompositionVisual` from [`Compositor::visual_handle`].
+    /// * `visual` — pointer to `IDCompositionVisual` from
+    ///   [`crate::Compositor::visual_handle`].
     /// * `hwnd` — the overlay window; used only for `GetClientRect` sizing.
     ///
     /// # Errors
