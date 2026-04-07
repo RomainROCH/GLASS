@@ -50,13 +50,8 @@ impl TextEngine {
         let font_system = FontSystem::new();
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
-        let mut atlas = TextAtlas::with_color_mode(
-            device,
-            queue,
-            &cache,
-            surface_format,
-            ColorMode::Accurate,
-        );
+        let mut atlas =
+            TextAtlas::with_color_mode(device, queue, &cache, surface_format, ColorMode::Accurate);
         let viewport = Viewport::new(device, &cache);
         let text_renderer = TextRenderer::new(
             &mut atlas,
@@ -99,13 +94,7 @@ impl TextEngine {
         let _span = info_span!("text_prepare").entered();
 
         // Update viewport resolution
-        self.viewport.update(
-            queue,
-            Resolution {
-                width,
-                height,
-            },
-        );
+        self.viewport.update(queue, Resolution { width, height });
 
         // Collect text nodes from scene
         let text_nodes: Vec<_> = scene
@@ -144,7 +133,11 @@ impl TextEngine {
             let buffer = &mut self.buffer_pool[i];
             let metrics = Metrics::new(text_props.font_size, text_props.font_size * 1.2);
             buffer.set_metrics(&mut self.font_system, metrics);
-            buffer.set_size(&mut self.font_system, Some(width as f32), Some(height as f32));
+            buffer.set_size(
+                &mut self.font_system,
+                Some(width as f32),
+                Some(height as f32),
+            );
             buffer.set_text(
                 &mut self.font_system,
                 &text_props.text,
@@ -199,18 +192,10 @@ impl TextEngine {
     /// Render prepared text into the given render pass.
     ///
     /// Must be called inside an active render pass, after [`prepare`].
-    pub fn render<'pass>(
-        &'pass self,
-        pass: &mut wgpu::RenderPass<'pass>,
-    ) {
+    pub fn render<'pass>(&'pass self, pass: &mut wgpu::RenderPass<'pass>) {
         let _span = info_span!("text_render").entered();
         if let Err(e) = self.text_renderer.render(&self.atlas, &self.viewport, pass) {
             warn!("glyphon render error: {e:?}");
         }
-    }
-
-    /// Trim unused atlas allocations. Call periodically (e.g. every 60 frames).
-    pub fn trim(&mut self) {
-        self.atlas.trim();
     }
 }

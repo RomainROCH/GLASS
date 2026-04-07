@@ -21,6 +21,7 @@ use arc_swap::ArcSwap;
 use glass_core::GlassError;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -191,10 +192,7 @@ impl OverlayConfig {
             self.size.width = 1.0;
         }
         if self.size.height <= 0.0 {
-            warn!(
-                "Config: height {:.1} <= 0, clamping to 1",
-                self.size.height
-            );
+            warn!("Config: height {:.1} <= 0, clamping to 1", self.size.height);
             self.size.height = 1.0;
         }
     }
@@ -203,7 +201,10 @@ impl OverlayConfig {
     fn diff_summary(&self, other: &Self) -> String {
         let mut changes = Vec::new();
         if self.opacity != other.opacity {
-            changes.push(format!("opacity: {:.2} -> {:.2}", self.opacity, other.opacity));
+            changes.push(format!(
+                "opacity: {:.2} -> {:.2}",
+                self.opacity, other.opacity
+            ));
         }
         if self.position != other.position {
             changes.push(format!(
@@ -249,21 +250,34 @@ fn detect_format(path: &Path) -> Result<ConfigFormat, GlassError> {
         Some("ron") => Ok(ConfigFormat::Ron),
         Some("toml") => Ok(ConfigFormat::Toml),
         Some(ext) => Err(GlassError::ConfigError(format!(
-            "Unknown config extension '.{ext}'; expected .ron or .toml"
+            "Unknown config extension '.{ext}' for {}; expected .ron or .toml",
+            path.display()
         ))),
-        None => Err(GlassError::ConfigError(
-            "Config file has no extension; expected .ron or .toml".into(),
-        )),
+        None => Err(GlassError::ConfigError(format!(
+            "Config file {} has no extension; expected .ron or .toml",
+            path.display()
+        ))),
     }
 }
 
-fn parse_config(content: &str, format: ConfigFormat) -> Result<OverlayConfig, GlassError> {
+fn parse_config(
+    content: &str,
+    format: ConfigFormat,
+    source: &Path,
+) -> Result<OverlayConfig, GlassError> {
     let mut cfg: OverlayConfig = match format {
-        ConfigFormat::Ron => {
-            ron::from_str(content).map_err(|e| GlassError::ConfigError(format!("RON parse: {e}")))?
-        }
-        ConfigFormat::Toml => toml::from_str(content)
-            .map_err(|e| GlassError::ConfigError(format!("TOML parse: {e}")))?,
+        ConfigFormat::Ron => ron::from_str(content).map_err(|e| {
+            GlassError::ConfigError(format!(
+                "Failed to parse RON config {}: {e}",
+                source.display()
+            ))
+        })?,
+        ConfigFormat::Toml => toml::from_str(content).map_err(|e| {
+            GlassError::ConfigError(format!(
+                "Failed to parse TOML config {}: {e}",
+                source.display()
+            ))
+        })?,
     };
     cfg.validate();
     Ok(cfg)
@@ -281,6 +295,24 @@ pub struct ConfigStore {
     _watcher: std::sync::Mutex<Option<RecommendedWatcher>>,
 }
 
+impl fmt::Debug for ConfigStore {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let watching = self
+            ._watcher
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false);
+        let current = self.inner.load();
+
+        f.debug_struct("ConfigStore")
+            .field("path", &self.path)
+            .field("format", &self.format)
+            .field("watching", &watching)
+            .field("current_config", &**current)
+            .finish()
+    }
+}
+
 impl ConfigStore {
     /// Load config from `path`. Format is detected by extension (`.ron` / `.toml`).
     ///
@@ -292,7 +324,7 @@ impl ConfigStore {
         let cfg = if path.exists() {
             let content = std::fs::read_to_string(&path)
                 .map_err(|e| GlassError::ConfigError(format!("Read {}: {e}", path.display())))?;
-            let cfg = parse_config(&content, format)?;
+            let cfg = parse_config(&content, format, &path)?;
             info!("Config loaded from {}", path.display());
             cfg
         } else {
@@ -384,7 +416,7 @@ impl ConfigStore {
                                 .unwrap_or_else(|| path.clone());
 
                             match std::fs::read_to_string(&target) {
-                                Ok(content) => match parse_config(&content, format) {
+                                Ok(content) => match parse_config(&content, format, &target) {
                                     Ok(new_cfg) => {
                                         let old = inner.load();
                                         let diff = old.diff_summary(&new_cfg);
@@ -393,12 +425,13 @@ impl ConfigStore {
                                     }
                                     Err(e) => {
                                         error!(
-                                            "Config reload parse error (keeping previous): {e}"
+                                            "Config reload parse error for {} (keeping previous): {e}",
+                                            target.display()
                                         );
                                     }
                                 },
                                 Err(e) => {
-                                    warn!("Config reload read error: {e}");
+                                    warn!("Config reload read error for {}: {e}", target.display());
                                 }
                             }
                         }
@@ -419,9 +452,13 @@ impl ConfigStore {
         info!("Config watcher active on {}", self.path.display());
 
         // Store watcher to keep it alive
-        if let Ok(mut guard) = self._watcher.lock() {
-            *guard = Some(watcher);
-        }
+        let mut guard = self._watcher.lock().map_err(|e| {
+            GlassError::ConfigError(format!(
+                "Watcher state lock poisoned for {}: {e}",
+                self.path.display()
+            ))
+        })?;
+        *guard = Some(watcher);
 
         Ok(())
     }
@@ -438,7 +475,7 @@ mod tests {
     #[test]
     fn parse_empty_ron_struct_yields_defaults() {
         // "()" is the RON representation of a struct with all default fields.
-        let cfg = parse_config("()", ConfigFormat::Ron).unwrap();
+        let cfg = parse_config("()", ConfigFormat::Ron, Path::new("config.ron")).unwrap();
         assert_eq!(cfg.opacity, default_opacity());
         assert_eq!(cfg.position, Position::default());
         assert_eq!(cfg.size, Size::default());
@@ -447,7 +484,7 @@ mod tests {
     #[test]
     fn parse_ron_explicit_opacity() {
         let ron_str = "(opacity: 0.75)";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
         assert_eq!(cfg.opacity, 0.75);
         // Other fields must still be defaults
         assert_eq!(cfg.position, Position::default());
@@ -456,15 +493,22 @@ mod tests {
     #[test]
     fn parse_ron_explicit_position() {
         let ron_str = "(position: (x: 50.0, y: 100.0))";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
         assert_eq!(cfg.position.x, 50.0);
         assert_eq!(cfg.position.y, 100.0);
     }
 
     #[test]
     fn malformed_ron_returns_error_not_panic() {
-        let result = parse_config("{ NOT VALID RON !!!", ConfigFormat::Ron);
-        assert!(result.is_err(), "malformed RON should return Err, not panic");
+        let result = parse_config(
+            "{ NOT VALID RON !!!",
+            ConfigFormat::Ron,
+            Path::new("config.ron"),
+        );
+        assert!(
+            result.is_err(),
+            "malformed RON should return Err, not panic"
+        );
         let err_msg = format!("{}", result.unwrap_err());
         assert!(
             err_msg.contains("RON") || err_msg.contains("Config"),
@@ -474,7 +518,7 @@ mod tests {
 
     #[test]
     fn malformed_toml_returns_error_not_panic() {
-        let result = parse_config("[[[[not toml", ConfigFormat::Toml);
+        let result = parse_config("[[[[not toml", ConfigFormat::Toml, Path::new("config.toml"));
         assert!(result.is_err(), "malformed TOML should return Err");
     }
 
@@ -483,21 +527,24 @@ mod tests {
     #[test]
     fn opacity_above_one_is_clamped_to_one() {
         let ron_str = "(opacity: 1.5)";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
         assert_eq!(cfg.opacity, 1.0, "opacity 1.5 should be clamped to 1.0");
     }
 
     #[test]
     fn negative_opacity_is_clamped_to_zero() {
         let ron_str = "(opacity: -0.5)";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
-        assert_eq!(cfg.opacity, 0.0, "negative opacity should be clamped to 0.0");
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
+        assert_eq!(
+            cfg.opacity, 0.0,
+            "negative opacity should be clamped to 0.0"
+        );
     }
 
     #[test]
     fn zero_width_is_clamped_to_one() {
         let ron_str = "(size: (width: 0.0, height: 200.0))";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
         assert_eq!(cfg.size.width, 1.0, "zero width should be clamped to 1.0");
         assert_eq!(cfg.size.height, 200.0, "height should be unchanged");
     }
@@ -505,14 +552,17 @@ mod tests {
     #[test]
     fn negative_height_is_clamped_to_one() {
         let ron_str = "(size: (width: 300.0, height: -5.0))";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
-        assert_eq!(cfg.size.height, 1.0, "negative height should be clamped to 1.0");
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
+        assert_eq!(
+            cfg.size.height, 1.0,
+            "negative height should be clamped to 1.0"
+        );
     }
 
     #[test]
     fn valid_opacity_is_not_clamped() {
         let ron_str = "(opacity: 0.0)";
-        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        let cfg = parse_config(ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
         assert_eq!(cfg.opacity, 0.0);
     }
 
@@ -531,8 +581,11 @@ mod tests {
         };
         let ron_str =
             ron::ser::to_string_pretty(&original, ron::ser::PrettyConfig::default()).unwrap();
-        let parsed = parse_config(&ron_str, ConfigFormat::Ron).unwrap();
-        assert_eq!(original, parsed, "round-trip should produce identical config");
+        let parsed = parse_config(&ron_str, ConfigFormat::Ron, Path::new("config.ron")).unwrap();
+        assert_eq!(
+            original, parsed,
+            "round-trip should produce identical config"
+        );
     }
 
     // ── diff_summary ─────────────────────────────────────────────────────
@@ -550,7 +603,10 @@ mod tests {
         let mut b = OverlayConfig::default();
         b.opacity = 0.5;
         let diff = a.diff_summary(&b);
-        assert!(diff.contains("opacity"), "diff should mention 'opacity': {diff}");
+        assert!(
+            diff.contains("opacity"),
+            "diff should mention 'opacity': {diff}"
+        );
     }
 
     #[test]
@@ -559,7 +615,10 @@ mod tests {
         let mut b = OverlayConfig::default();
         b.position.x = 999.0;
         let diff = a.diff_summary(&b);
-        assert!(diff.contains("position"), "diff should mention 'position': {diff}");
+        assert!(
+            diff.contains("position"),
+            "diff should mention 'position': {diff}"
+        );
     }
 
     #[test]

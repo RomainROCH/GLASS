@@ -5,8 +5,8 @@
 //! `PreMultiplied` alpha mode.
 //!
 //! Retained rendering: draws once, re-renders only on explicit invalidation.
-//! Scene graph nodes and text are rendered via the [`TextEngine`] from
-//! [`crate::text_renderer`].
+//! Scene graph text is prepared and drawn through an internal glyph rendering
+//! engine owned by [`Renderer`].
 
 // # Unsafe usage in this module
 //
@@ -15,11 +15,12 @@
 // - `Renderer::new` (create_surface_unsafe): wgpu FFI — binds a wgpu surface to a
 //   raw `IDCompositionVisual*`; the visual must remain valid for the surface lifetime.
 
-use glass_core::GlassError;
 use crate::hdr;
 use crate::scene::Scene;
 use crate::text_renderer::TextEngine;
+use glass_core::GlassError;
 use std::ffi::c_void;
+use std::fmt;
 use std::ptr::NonNull;
 use tracing::{info, info_span, warn};
 use windows::Win32::Foundation::HWND;
@@ -59,6 +60,17 @@ pub struct Renderer {
     scene: Scene,
     /// Glyphon text rendering engine.
     text_engine: TextEngine,
+}
+
+impl fmt::Debug for Renderer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Renderer")
+            .field("surface_config", &self.surface_config)
+            .field("color_pipeline", &self.color_pipeline)
+            .field("scene_nodes", &self.scene.len())
+            .field("scene_dirty", &self.scene.is_dirty())
+            .finish()
+    }
 }
 
 impl Renderer {
@@ -135,10 +147,17 @@ impl Renderer {
         .map_err(|e| GlassError::WgpuInit(format!("Device request failed: {e}")))?;
 
         let caps = surface.get_capabilities(&adapter);
-        info!("Surface capabilities: formats={:?}, alpha_modes={:?}", caps.formats, caps.alpha_modes);
+        info!(
+            "Surface capabilities: formats={:?}, alpha_modes={:?}",
+            caps.formats, caps.alpha_modes
+        );
 
         // HDR detection + format selection
         let hdr_result = hdr::detect_primary_hdr();
+        info!(
+            "Primary display capability: output={}, color_space={}, capability={:?}",
+            hdr_result.output_name, hdr_result.color_space, hdr_result.capability
+        );
         let force_sdr = std::env::args().any(|a| a == "--force-sdr");
         if force_sdr {
             info!("--force-sdr flag: forcing SDR pipeline");
@@ -170,8 +189,8 @@ impl Renderer {
         // In test mode, add watermark text nodes using the scene graph.
         #[cfg(feature = "test_mode")]
         {
-            use crate::test_mode;
             use crate::scene::{Color, TextProps};
+            use crate::test_mode;
             let wm_x = (width as f32) * 0.55;
             let mut wm_y = (height as f32) - 60.0;
             for line in test_mode::WATERMARK_LINES {
@@ -184,7 +203,10 @@ impl Renderer {
                 });
                 wm_y += test_mode::WATERMARK_FONT_SIZE * 1.25;
             }
-            info!("Test mode: {} watermark text nodes added", test_mode::WATERMARK_LINES.len());
+            info!(
+                "Test mode: {} watermark text nodes added",
+                test_mode::WATERMARK_LINES.len()
+            );
         }
 
         Ok(Self {
@@ -244,13 +266,11 @@ impl Renderer {
                 // Surface lost/outdated — reconfigure and retry once
                 warn!("Surface lost/outdated — reconfiguring and retrying");
                 self.surface.configure(&self.device, &self.surface_config);
-                self.surface
-                    .get_current_texture()
-                    .map_err(|e| {
-                        let msg = format!("Surface acquire failed after reconfigure: {e}");
-                        warn!("Fatal GPU error: {msg}");
-                        GlassError::WgpuInit(msg)
-                    })?
+                self.surface.get_current_texture().map_err(|e| {
+                    let msg = format!("Surface acquire failed after reconfigure: {e}");
+                    warn!("Fatal GPU error: {msg}");
+                    GlassError::WgpuInit(msg)
+                })?
             }
             Err(wgpu::SurfaceError::Timeout) => {
                 // Timeout is transient — skip this frame

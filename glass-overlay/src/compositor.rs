@@ -17,6 +17,7 @@
 
 use glass_core::GlassError;
 use std::ffi::c_void;
+use std::fmt;
 use std::ptr::NonNull;
 use tracing::{info, info_span};
 use windows::core::Interface;
@@ -31,6 +32,16 @@ pub struct Compositor {
     device: IDCompositionDevice,
     _target: IDCompositionTarget, // prevent drop
     visual: IDCompositionVisual,
+}
+
+impl fmt::Debug for Compositor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Compositor")
+            .field("device_ptr", &self.device.as_raw())
+            .field("target_ptr", &self._target.as_raw())
+            .field("visual_ptr", &self.visual.as_raw())
+            .finish()
+    }
 }
 
 impl Compositor {
@@ -49,22 +60,21 @@ impl Compositor {
         // - The `?` propagation ensures no subsequent call proceeds with a null/invalid
         //   interface pointer from a failed prior call.
         unsafe {
-            let device: IDCompositionDevice =
-                DCompositionCreateDevice(None).map_err(|e| {
-                    GlassError::CompositionInit(format!("DCompositionCreateDevice: {e}"))
-                })?;
-
-            let target = device.CreateTargetForHwnd(hwnd, true).map_err(|e| {
-                GlassError::CompositionInit(format!("CreateTargetForHwnd: {e}"))
+            let device: IDCompositionDevice = DCompositionCreateDevice(None).map_err(|e| {
+                GlassError::CompositionInit(format!("DCompositionCreateDevice: {e}"))
             })?;
 
-            let visual = device.CreateVisual().map_err(|e| {
-                GlassError::CompositionInit(format!("CreateVisual: {e}"))
-            })?;
+            let target = device
+                .CreateTargetForHwnd(hwnd, true)
+                .map_err(|e| GlassError::CompositionInit(format!("CreateTargetForHwnd: {e}")))?;
 
-            target.SetRoot(&visual).map_err(|e| {
-                GlassError::CompositionInit(format!("SetRoot: {e}"))
-            })?;
+            let visual = device
+                .CreateVisual()
+                .map_err(|e| GlassError::CompositionInit(format!("CreateVisual: {e}")))?;
+
+            target
+                .SetRoot(&visual)
+                .map_err(|e| GlassError::CompositionInit(format!("SetRoot: {e}")))?;
 
             info!("DirectComposition initialized (device + target + visual)");
 
@@ -78,7 +88,15 @@ impl Compositor {
 
     /// Get the visual pointer for [`wgpu::SurfaceTargetUnsafe::CompositionVisual`].
     pub fn visual_handle(&self) -> NonNull<c_void> {
-        NonNull::new(self.visual.as_raw()).expect("IDCompositionVisual pointer is null")
+        let visual = self.visual.as_raw();
+        debug_assert!(
+            !visual.is_null(),
+            "IDCompositionVisual pointers returned by CreateVisual are guaranteed non-null"
+        );
+        // SAFETY: `self.visual` is created by `IDCompositionDevice::CreateVisual` in
+        // `Compositor::new`. A successful COM call yields a valid interface pointer, and
+        // `self` keeps that COM object alive for the lifetime of the returned handle.
+        unsafe { NonNull::new_unchecked(visual) }
     }
 
     /// Commit pending changes. Must be called after wgpu configures the surface

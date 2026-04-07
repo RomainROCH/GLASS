@@ -2,7 +2,7 @@
 //!
 //! Configurable time format (strftime). Updates every second by default.
 
-use super::{ModuleInfo, OverlayModule, remove_nodes};
+use super::{remove_nodes, ModuleInfo, OverlayModule};
 use crate::scene::{Color, NodeId, Scene, SceneNode, TextProps};
 use std::time::{Duration, Instant};
 use tracing::debug;
@@ -17,6 +17,7 @@ const FONT_SIZE: f32 = 18.0;
 const UPDATE_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Clock overlay module.
+#[derive(Debug)]
 pub struct ClockModule {
     enabled: bool,
     format: String,
@@ -186,7 +187,10 @@ mod tests {
         let clock = ClockModule::new("");
         // chrono formats an empty string as an empty string — must not panic
         let text = clock.current_time_text();
-        assert_eq!(text, "", "empty format should produce empty string, not panic");
+        assert_eq!(
+            text, "",
+            "empty format should produce empty string, not panic"
+        );
     }
 
     #[test]

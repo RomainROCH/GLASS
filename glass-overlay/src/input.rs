@@ -69,10 +69,7 @@ pub struct InteractiveRect {
 impl InteractiveRect {
     /// Test whether a point (px, py) is inside this rectangle.
     pub fn contains(&self, px: f32, py: f32) -> bool {
-        px >= self.x
-            && px < self.x + self.width
-            && py >= self.y
-            && py < self.y + self.height
+        px >= self.x && px < self.x + self.width && py >= self.y && py < self.y + self.height
     }
 }
 
@@ -102,14 +99,7 @@ impl HitTester {
     }
 
     /// Register an interactive rectangle. Returns its ID.
-    pub fn add_rect(
-        &mut self,
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        z_order: i32,
-    ) -> u32 {
+    pub fn add_rect(&mut self, x: f32, y: f32, width: f32, height: f32, z_order: i32) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
         self.rects.push(InteractiveRect {
@@ -143,10 +133,7 @@ impl HitTester {
     /// the point, or `None` if no rect is hit.
     pub fn hit_test(&self, px: f32, py: f32) -> Option<u32> {
         // Rects are sorted by z_order descending, so the first match is topmost.
-        self.rects
-            .iter()
-            .find(|r| r.contains(px, py))
-            .map(|r| r.id)
+        self.rects.iter().find(|r| r.contains(px, py)).map(|r| r.id)
     }
 
     /// Remove all registered rects.
@@ -172,6 +159,7 @@ impl HitTester {
 ///
 /// Accessed exclusively from the window-proc thread (single-threaded by
 /// the Win32 message-pump model).
+#[derive(Debug)]
 pub struct OverlayInputState {
     /// Current input mode.
     pub mode: InputMode,
@@ -214,7 +202,10 @@ impl OverlayInputState {
         self.mode = InputMode::Interactive;
         self.interactive_since = Some(Instant::now());
         if was_passive {
-            info!("Input mode: Passive → Interactive (timeout={}ms)", self.timeout.as_millis());
+            info!(
+                "Input mode: Passive → Interactive (timeout={}ms)",
+                self.timeout.as_millis()
+            );
         } else {
             debug!("Interactive mode timer reset");
         }
@@ -245,6 +236,7 @@ impl OverlayInputState {
 /// High-level manager for input mode transitions and indicator lifecycle.
 ///
 /// Used by the main application loop (not the wnd_proc directly).
+#[derive(Debug)]
 pub struct InputManager {
     /// Scene node IDs for the visual indicator (border rects + label).
     indicator_node_ids: Vec<crate::scene::NodeId>,
@@ -322,7 +314,10 @@ impl InputManager {
 
         self.indicator_node_ids = vec![top, bottom, left, right, label];
         self.indicator_visible = true;
-        debug!("Interactive indicator shown ({} nodes)", self.indicator_node_ids.len());
+        debug!(
+            "Interactive indicator shown ({} nodes)",
+            self.indicator_node_ids.len()
+        );
         true
     }
 

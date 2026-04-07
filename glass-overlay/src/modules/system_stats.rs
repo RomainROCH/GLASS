@@ -8,8 +8,9 @@
 //! displays `"temp: N/A"` instead of a celsius value.
 //! Gracefully degrades if any metric is unavailable.
 
-use super::{ModuleInfo, OverlayModule, remove_nodes};
+use super::{remove_nodes, ModuleInfo, OverlayModule};
 use crate::scene::{Color, NodeId, Scene, SceneNode, TextProps};
+use std::fmt;
 use std::time::{Duration, Instant};
 use sysinfo::System;
 use tracing::debug;
@@ -51,6 +52,22 @@ pub struct SystemStatsModule {
     last_mem_text: String,
     base_x: f32,
     base_y: f32,
+}
+
+impl fmt::Debug for SystemStatsModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SystemStatsModule")
+            .field("enabled", &self.enabled)
+            .field("node_ids", &self.node_ids)
+            .field("has_temp_source", &self.temp_source.is_some())
+            .field("interval", &self.interval)
+            .field("last_update", &self.last_update)
+            .field("last_cpu_text", &self.last_cpu_text)
+            .field("last_mem_text", &self.last_mem_text)
+            .field("base_x", &self.base_x)
+            .field("base_y", &self.base_y)
+            .finish()
+    }
 }
 
 impl SystemStatsModule {
@@ -256,7 +273,10 @@ mod tests {
         let (cpu, mem) = module.refresh_metrics();
         // No temp source injected — must show "temp: N/A"
         assert!(cpu.starts_with("system: CPU "), "cpu text: {cpu}");
-        assert!(cpu.contains("temp: N/A"), "expected 'temp: N/A' in cpu text: {cpu}");
+        assert!(
+            cpu.contains("temp: N/A"),
+            "expected 'temp: N/A' in cpu text: {cpu}"
+        );
         assert!(mem.starts_with("system: RAM "), "mem text: {mem}");
     }
 
@@ -265,7 +285,10 @@ mod tests {
         let mut module = SystemStatsModule::new();
         module.set_temp_source(Box::new(|| Some(65.0)));
         let (cpu, _mem) = module.refresh_metrics();
-        assert!(cpu.contains("temp 65°C"), "expected 'temp 65°C' in cpu text: {cpu}");
+        assert!(
+            cpu.contains("temp 65°C"),
+            "expected 'temp 65°C' in cpu text: {cpu}"
+        );
     }
 
     #[test]
@@ -321,7 +344,10 @@ mod tests {
             text.contains("8.0/16.0 GiB"),
             "exact GiB values should format cleanly: {text}"
         );
-        assert!(text.starts_with("system: RAM "), "must carry 'system: RAM' prefix: {text}");
+        assert!(
+            text.starts_with("system: RAM "),
+            "must carry 'system: RAM' prefix: {text}"
+        );
     }
 
     #[test]
@@ -341,7 +367,10 @@ mod tests {
         let mut module = SystemStatsModule::new();
         assert!(module.enabled(), "new module should be enabled by default");
         module.set_enabled(false);
-        assert!(!module.enabled(), "set_enabled(false) should disable the module");
+        assert!(
+            !module.enabled(),
+            "set_enabled(false) should disable the module"
+        );
     }
 
     #[test]
@@ -349,7 +378,10 @@ mod tests {
         let mut module = SystemStatsModule::new();
         module.set_enabled(false);
         module.set_enabled(true);
-        assert!(module.enabled(), "set_enabled(true) should re-enable the module");
+        assert!(
+            module.enabled(),
+            "set_enabled(true) should re-enable the module"
+        );
     }
 
     // ── set_position ──────────────────────────────────────────────────────

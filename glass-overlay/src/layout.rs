@@ -23,6 +23,7 @@
 use crate::modules::{self, ModuleInfo, ModulesConfig, OverlayModule};
 use crate::scene::Scene;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::time::Duration;
 use tracing::debug;
 
@@ -68,13 +69,14 @@ impl Anchor {
             Anchor::TopLeft => (margin_x, margin_y),
             Anchor::TopRight => (screen_w - content_w - margin_x, margin_y),
             Anchor::BottomLeft => (margin_x, screen_h - content_h - margin_y),
-            Anchor::BottomRight => {
-                (screen_w - content_w - margin_x, screen_h - content_h - margin_y)
-            }
-            Anchor::Center => {
-                ((screen_w - content_w) / 2.0 + margin_x,
-                 (screen_h - content_h) / 2.0 + margin_y)
-            }
+            Anchor::BottomRight => (
+                screen_w - content_w - margin_x,
+                screen_h - content_h - margin_y,
+            ),
+            Anchor::Center => (
+                (screen_w - content_w) / 2.0 + margin_x,
+                (screen_h - content_h) / 2.0 + margin_y,
+            ),
             Anchor::ScreenPercentage(px, py) => {
                 (screen_w * px + margin_x, screen_h * py + margin_y)
             }
@@ -99,6 +101,12 @@ pub struct BoundingBox {
     pub height: f32,
 }
 
+impl Default for BoundingBox {
+    fn default() -> Self {
+        Self::ZERO
+    }
+}
+
 impl BoundingBox {
     /// Zero-sized bounding box at the origin.
     pub const ZERO: Self = Self {
@@ -110,17 +118,19 @@ impl BoundingBox {
 
     /// Create a new bounding box.
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     /// Test whether a point `(px, py)` is inside this bounding box.
     ///
     /// Uses half-open interval: left/top inclusive, right/bottom exclusive.
     pub fn contains(&self, px: f32, py: f32) -> bool {
-        px >= self.x
-            && px < self.x + self.width
-            && py >= self.y
-            && py < self.y + self.height
+        px >= self.x && px < self.x + self.width && py >= self.y && py < self.y + self.height
     }
 }
 
@@ -162,6 +172,21 @@ pub struct WidgetWrapper<M: OverlayModule> {
     screen_size: (f32, f32),
 }
 
+impl<M> fmt::Debug for WidgetWrapper<M>
+where
+    M: OverlayModule + fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WidgetWrapper")
+            .field("module", &self.module)
+            .field("anchor", &self.anchor)
+            .field("margin", &self.margin)
+            .field("bbox", &self.bbox)
+            .field("screen_size", &self.screen_size)
+            .finish()
+    }
+}
+
 impl<M: OverlayModule> WidgetWrapper<M> {
     /// Create a new widget wrapper.
     ///
@@ -185,9 +210,9 @@ impl<M: OverlayModule> WidgetWrapper<M> {
     pub fn recalculate(&mut self, screen_w: f32, screen_h: f32) {
         self.screen_size = (screen_w, screen_h);
         let (cw, ch) = self.module.content_size();
-        let (x, y) = self.anchor.resolve(
-            cw, ch, screen_w, screen_h, self.margin.0, self.margin.1,
-        );
+        let (x, y) = self
+            .anchor
+            .resolve(cw, ch, screen_w, screen_h, self.margin.0, self.margin.1);
         self.bbox = BoundingBox::new(x, y, cw, ch);
         self.module.set_position(x, y);
     }
@@ -336,6 +361,21 @@ pub struct LayoutManager {
     screen_h: f32,
 }
 
+impl fmt::Debug for LayoutManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let module_ids: Vec<_> = self
+            .entries
+            .iter()
+            .map(|entry| entry.module.info().id)
+            .collect();
+        f.debug_struct("LayoutManager")
+            .field("screen_w", &self.screen_w)
+            .field("screen_h", &self.screen_h)
+            .field("module_ids", &module_ids)
+            .finish()
+    }
+}
+
 impl LayoutManager {
     /// Create a new layout manager with the given screen dimensions.
     pub fn new(screen_w: f32, screen_h: f32) -> Self {
@@ -354,7 +394,12 @@ impl LayoutManager {
     /// # Panics
     /// Panics if a module with the same ID already exists.
     pub fn add_widget<M: OverlayModule + 'static>(&mut self, wrapper: WidgetWrapper<M>) {
-        let WidgetWrapper { mut module, anchor, margin, .. } = wrapper;
+        let WidgetWrapper {
+            mut module,
+            anchor,
+            margin,
+            ..
+        } = wrapper;
 
         let id = module.info().id;
         assert!(
@@ -363,9 +408,7 @@ impl LayoutManager {
         );
 
         let (cw, ch) = module.content_size();
-        let (x, y) = anchor.resolve(
-            cw, ch, self.screen_w, self.screen_h, margin.0, margin.1,
-        );
+        let (x, y) = anchor.resolve(cw, ch, self.screen_w, self.screen_h, margin.0, margin.1);
         module.set_position(x, y);
         let bbox = BoundingBox::new(x, y, cw, ch);
 
@@ -394,9 +437,10 @@ impl LayoutManager {
 
         for entry in &mut self.entries {
             let (cw, ch) = entry.module.content_size();
-            let (x, y) = entry.anchor.resolve(
-                cw, ch, screen_w, screen_h, entry.margin.0, entry.margin.1,
-            );
+            let (x, y) =
+                entry
+                    .anchor
+                    .resolve(cw, ch, screen_w, screen_h, entry.margin.0, entry.margin.1);
             let new_bbox = BoundingBox::new(x, y, cw, ch);
 
             if new_bbox != entry.bbox {
@@ -505,8 +549,10 @@ impl LayoutManager {
 
         for entry in &mut self.entries {
             if entry.module.info().id == "clock" {
-                if let Some(clock) =
-                    entry.module.as_any_mut().downcast_mut::<modules::clock::ClockModule>()
+                if let Some(clock) = entry
+                    .module
+                    .as_any_mut()
+                    .downcast_mut::<modules::clock::ClockModule>()
                 {
                     clock.set_format(&config.clock_format);
                 }
@@ -902,7 +948,11 @@ mod tests {
         let mut m = TestModule::new("clock", 150.0, 22.0);
         m.enabled = false; // Start disabled
         lm.add_widget(WidgetWrapper::new(m, Anchor::TopLeft, 10.0, 10.0));
-        assert_eq!(scene.len(), 0, "disabled module must not add nodes before init");
+        assert_eq!(
+            scene.len(),
+            0,
+            "disabled module must not add nodes before init"
+        );
 
         // Enable clock via apply_config (clock_enabled defaults to true)
         let cfg = ModulesConfig::default(); // clock_enabled = true

@@ -6,7 +6,7 @@
 //! Uses a simple rolling-window averaging approach with no heap allocations
 //! in steady state.
 
-use super::{ModuleInfo, OverlayModule, remove_nodes};
+use super::{remove_nodes, ModuleInfo, OverlayModule};
 use crate::scene::{Color, NodeId, Scene, SceneNode, TextProps};
 use std::time::{Duration, Instant};
 use tracing::debug;
@@ -24,6 +24,7 @@ const DISPLAY_INTERVAL: Duration = Duration::from_millis(500);
 ///
 /// **Important**: This measures overlay render frames, not game FPS.
 /// The displayed label always includes "overlay-only" provenance.
+#[derive(Debug)]
 pub struct FpsCounterModule {
     enabled: bool,
     node_id: Option<NodeId>,

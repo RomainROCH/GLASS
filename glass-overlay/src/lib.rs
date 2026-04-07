@@ -40,11 +40,11 @@
 //! - [`modules`] for manual module registration via [`modules::ModuleRegistry`]
 //! - [`scene`] for direct retained scene-graph manipulation
 //! - [`compositor`], [`renderer`], and [`overlay_window`] for lower-level runtime setup
-//! - [`hdr`], [`text_renderer`], and [`test_mode`] for advanced rendering and feature-specific hooks
 //! - [`safety`] for gaming-specific anti-cheat checks when the feature is enabled
 
 pub mod compositor;
 pub mod config;
+mod hdr;
 pub mod input;
 pub mod layout;
 pub mod modules;
@@ -53,9 +53,8 @@ pub mod renderer;
 #[cfg(feature = "gaming")]
 pub mod safety;
 pub mod scene;
-pub mod hdr;
-pub mod test_mode;
-pub mod text_renderer;
+mod test_mode;
+mod text_renderer;
 
 pub use crate::compositor::Compositor;
 pub use crate::config::{Colors, ConfigStore, InputConfig, OverlayConfig, Position, Rgba, Size};

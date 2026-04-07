@@ -26,6 +26,7 @@ pub use system_stats::SystemStatsModule;
 
 use crate::scene::{NodeId, Scene};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::time::Duration;
 
 // ─── OverlayModule trait ────────────────────────────────────────────────────
@@ -143,6 +144,15 @@ pub struct ModuleRegistry {
     modules: Vec<Box<dyn OverlayModule>>,
 }
 
+impl fmt::Debug for ModuleRegistry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let module_ids: Vec<_> = self.modules.iter().map(|module| module.info().id).collect();
+        f.debug_struct("ModuleRegistry")
+            .field("module_ids", &module_ids)
+            .finish()
+    }
+}
+
 impl ModuleRegistry {
     /// Create a new empty registry.
     pub fn new() -> Self {
@@ -234,13 +244,14 @@ impl ModuleRegistry {
         // Update clock format
         for module in &mut self.modules {
             if module.info().id == "clock" {
-                if let Some(clock) = module.as_any_mut().downcast_mut::<clock::ClockModule>()
-                {
+                if let Some(clock) = module.as_any_mut().downcast_mut::<clock::ClockModule>() {
                     clock.set_format(&config.clock_format);
                 }
             }
             if module.info().id == "system_stats" {
-                if let Some(stats) = module.as_any_mut().downcast_mut::<system_stats::SystemStatsModule>()
+                if let Some(stats) = module
+                    .as_any_mut()
+                    .downcast_mut::<system_stats::SystemStatsModule>()
                 {
                     stats.set_interval(Duration::from_millis(config.stats_interval_ms));
                 }
