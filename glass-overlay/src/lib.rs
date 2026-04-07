@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! GLASS Overlay — the main library for building Windows overlays with GLASS.
 //!
 //! Most applications should start from the crate root. The primary app-facing API is:

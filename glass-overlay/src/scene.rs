@@ -24,13 +24,19 @@ impl fmt::Display for NodeId {
 /// RGBA colour (premultiplied alpha) for scene elements.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Color {
+    /// Red channel in `[0.0, 1.0]`.
     pub r: f32,
+    /// Green channel in `[0.0, 1.0]`.
     pub g: f32,
+    /// Blue channel in `[0.0, 1.0]`.
     pub b: f32,
+    /// Alpha channel in `[0.0, 1.0]`. For premultiplied colours, RGB values
+    /// should already be multiplied by alpha before they are stored here.
     pub a: f32,
 }
 
 impl Color {
+    /// Construct a colour from individual RGBA components (all in `[0.0, 1.0]`).
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
@@ -45,35 +51,50 @@ impl Color {
         }
     }
 
+    /// Fully transparent black (all components zero).
     pub const TRANSPARENT: Self = Self::new(0.0, 0.0, 0.0, 0.0);
+    /// Opaque white.
     pub const WHITE: Self = Self::new(1.0, 1.0, 1.0, 1.0);
+    /// Opaque black.
     pub const BLACK: Self = Self::new(0.0, 0.0, 0.0, 1.0);
 }
 
 /// Properties for a rectangle node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RectProps {
+    /// Horizontal position of the rectangle's top-left corner in screen pixels.
     pub x: f32,
+    /// Vertical position of the rectangle's top-left corner in screen pixels.
     pub y: f32,
+    /// Rectangle width in pixels.
     pub width: f32,
+    /// Rectangle height in pixels.
     pub height: f32,
+    /// Fill colour (premultiplied alpha).
     pub color: Color,
 }
 
 /// Properties for a text node.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextProps {
+    /// Horizontal position of the text baseline origin in screen pixels.
     pub x: f32,
+    /// Vertical position of the text baseline origin in screen pixels.
     pub y: f32,
+    /// Text content to render.
     pub text: String,
+    /// Font size in logical pixels.
     pub font_size: f32,
+    /// Text colour (premultiplied alpha).
     pub color: Color,
 }
 
 /// A retained scene node.
 #[derive(Debug, Clone)]
 pub enum SceneNode {
+    /// A solid-colour rectangle.
     Rect(RectProps),
+    /// A text run rendered via glyphon.
     Text(TextProps),
 }
 

@@ -89,9 +89,13 @@ impl Anchor {
 /// Used for hit-testing and layout calculations.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingBox {
+    /// Left edge in screen pixels.
     pub x: f32,
+    /// Top edge in screen pixels.
     pub y: f32,
+    /// Rectangle width in pixels.
     pub width: f32,
+    /// Rectangle height in pixels.
     pub height: f32,
 }
 
