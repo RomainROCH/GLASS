@@ -1,7 +1,13 @@
 [package]
 name = "glass-core"
-version = "0.1.0"
-edition.workspace = true
+version = "0.2.0"
+edition = "2021"
+description = "Core types and error handling for the GLASS overlay framework"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/RomainROCH/GLASS"
+readme = "../README.md"
+keywords = ["overlay", "windows", "directcomposition", "gui"]
+categories = ["gui", "rendering"]
 
 [features]
 default = []
