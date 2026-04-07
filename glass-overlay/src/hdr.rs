@@ -4,6 +4,13 @@
 //! HDR (scRGB / ST.2084). Falls back to explicit SDR path when HDR
 //! is unavailable or when `--force-sdr` is set.
 
+// # Unsafe usage in this module
+//
+// - `detect_primary_hdr`: DXGI COM/FFI — `CreateDXGIFactory1`, `EnumAdapters1`,
+//   `EnumOutputs`, `GetDesc`, `cast::<IDXGIOutput6>`, and `GetDesc1` are all unsafe
+//   COM interface calls. Each interface pointer is returned by the prior call and
+//   validated before use via early-return error handling.
+
 use tracing::{info, warn};
 use windows::Win32::Graphics::Dxgi::*;
 use windows::Win32::Graphics::Dxgi::Common::*;
@@ -36,6 +43,15 @@ pub struct HdrDetectionResult {
 /// Returns `Hdr` if the primary output supports scRGB or ST.2084,
 /// `Sdr` if it explicitly doesn't, or `Unknown` if detection fails.
 pub fn detect_primary_hdr() -> HdrDetectionResult {
+    // SAFETY: All calls in this block are DXGI COM interface calls via the `windows` crate.
+    // - `CreateDXGIFactory1` has no external preconditions beyond a D3D-capable Windows
+    //   installation; it returns a COM error rather than exhibiting UB if unavailable.
+    // - Each subsequent COM call (`EnumAdapters1`, `EnumOutputs`, `GetDesc`, `cast`,
+    //   `GetDesc1`) operates on an interface pointer obtained from the immediately
+    //   preceding successful call. Early-return error handling ensures no call receives
+    //   a null or invalid interface pointer.
+    // - All COM objects use the `windows` crate RAII wrappers that call `Release` on drop,
+    //   so there are no manual `AddRef`/`Release` calls and no lifetime mismatches.
     unsafe {
         let factory = match CreateDXGIFactory1::<IDXGIFactory1>() {
             Ok(f) => f,
