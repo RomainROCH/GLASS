@@ -4,11 +4,15 @@
 # Rust build artifacts
 /target/
 **/*.rs.bk
-Cargo.lock
+*.tmp
+# Keep Cargo.lock tracked: this workspace ships the glass-starter binary crate.
 
-# IDE
+# IDE and editor files
 .vscode/
 .idea/
+.vs/
+*.iml
+*.code-workspace
 *.swp
 *.swo
 vs_buildtools.exe

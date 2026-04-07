@@ -66,6 +66,7 @@ GLASS currently supports Windows 10 and Windows 11 only. The runtime depends on 
 
 - `SystemStatsModule` does not perform built-in temperature detection. Applications inject a callback with `SystemStatsModule::set_temp_source()`.
 - `ConfigStore::watch()` updates the stored config snapshot, but a running app must still re-read and reapply the snapshot for runtime behavior to change. The reference starter does not currently do that after startup.
+- The root-level Python packaging files are maintenance scaffolding for repo tooling around `sync_wgpu.py`; they are not a supported GLASS consumer API.
 
 ## License
 
