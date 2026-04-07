@@ -15,3 +15,12 @@ target = "x86_64-pc-windows-msvc"
 [env]
 # Force wgpu to use DX12 backend only
 WGPU_BACKEND = "dx12"
+
+[patch.crates-io]
+# Publish/package verification builds run from target/package, so mirror
+# workspace-local patches here to keep dry-runs aligned with the workspace.
+glass-core = { path = "glass-core" }
+wgpu-core = { path = "third_party/wgpu/wgpu-core" }
+wgpu-hal = { path = "third_party/wgpu/wgpu-hal" }
+wgpu-types = { path = "third_party/wgpu/wgpu-types" }
+naga = { path = "third_party/wgpu/naga" }
