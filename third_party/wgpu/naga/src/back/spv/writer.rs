@@ -121,8 +121,8 @@ impl Writer {
             extensions_used: take(&mut self.extensions_used).recycle(),
             physical_layout: self.physical_layout.clone().recycle(),
             logical_layout: take(&mut self.logical_layout).recycle(),
-            debugs: take(&mut self.debugs).recycle(),
-            annotations: take(&mut self.annotations).recycle(),
+            debugs: Recyclable::recycle(take(&mut self.debugs)),
+            annotations: Recyclable::recycle(take(&mut self.annotations)),
             lookup_type: take(&mut self.lookup_type).recycle(),
             lookup_function: take(&mut self.lookup_function).recycle(),
             lookup_function_type: take(&mut self.lookup_function_type).recycle(),
@@ -130,7 +130,7 @@ impl Writer {
             cached_constants: take(&mut self.cached_constants).recycle(),
             global_variables: take(&mut self.global_variables).recycle(),
             saved_cached: take(&mut self.saved_cached).recycle(),
-            temp_list: take(&mut self.temp_list).recycle(),
+            temp_list: Recyclable::recycle(take(&mut self.temp_list)),
         };
 
         *self = fresh;

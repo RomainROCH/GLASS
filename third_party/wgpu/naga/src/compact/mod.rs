@@ -271,14 +271,14 @@ impl<'module> ModuleTracer<'module> {
         }
     }
 
-    fn as_type(&mut self) -> types::TypeTracer {
+    fn as_type(&mut self) -> types::TypeTracer<'_> {
         types::TypeTracer {
             types: &self.module.types,
             types_used: &mut self.types_used,
         }
     }
 
-    fn as_const_expression(&mut self) -> expressions::ExpressionTracer {
+    fn as_const_expression(&mut self) -> expressions::ExpressionTracer<'_> {
         expressions::ExpressionTracer {
             expressions: &self.module.global_expressions,
             constants: &self.module.constants,

@@ -147,13 +147,13 @@ impl ComputeCommand {
                     }
 
                     ComputeCommand::PushDebugGroup { color, len } => {
-                        ArcComputeCommand::PushDebugGroup { color, len }
+                        ArcComputeCommand::PushDebugGroup { _color: color, len }
                     }
 
                     ComputeCommand::PopDebugGroup => ArcComputeCommand::PopDebugGroup,
 
                     ComputeCommand::InsertDebugMarker { color, len } => {
-                        ArcComputeCommand::InsertDebugMarker { color, len }
+                        ArcComputeCommand::InsertDebugMarker { _color: color, len }
                     }
 
                     ComputeCommand::WriteTimestamp {
@@ -229,7 +229,7 @@ pub enum ArcComputeCommand {
 
     PushDebugGroup {
         #[cfg_attr(target_os = "emscripten", allow(dead_code))]
-        color: u32,
+        _color: u32,
         len: usize,
     },
 
@@ -237,7 +237,7 @@ pub enum ArcComputeCommand {
 
     InsertDebugMarker {
         #[cfg_attr(target_os = "emscripten", allow(dead_code))]
-        color: u32,
+        _color: u32,
         len: usize,
     },
 

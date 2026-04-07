@@ -72,7 +72,7 @@ impl<T> UniqueArena<T> {
     }
 
     #[cfg(feature = "compact")]
-    pub(crate) fn drain_all(&mut self) -> UniqueArenaDrain<T> {
+    pub(crate) fn drain_all(&mut self) -> UniqueArenaDrain<'_, T> {
         UniqueArenaDrain {
             inner_elts: self.set.drain(..),
             inner_spans: self.span_info.drain(..),

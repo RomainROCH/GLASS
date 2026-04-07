@@ -395,7 +395,7 @@ impl<'source, 'temp, 'out> ExpressionContext<'source, 'temp, 'out> {
         }
     }
 
-    fn as_const_evaluator(&mut self) -> ConstantEvaluator {
+    fn as_const_evaluator(&mut self) -> ConstantEvaluator<'_> {
         match self.expr_type {
             ExpressionContextType::Runtime(ref mut rctx) => ConstantEvaluator::for_wgsl_function(
                 self.module,
@@ -882,7 +882,7 @@ impl Components {
         }
     }
 
-    fn single_component(name: &str, name_span: Span) -> Result<u32, Error> {
+    fn single_component(name: &str, name_span: Span) -> Result<u32, Error<'_>> {
         let ch = name.chars().next().ok_or(Error::BadAccessor(name_span))?;
         match Self::letter_component(ch) {
             Some(sc) => Ok(sc as u32),
@@ -893,7 +893,7 @@ impl Components {
     /// Construct a `Components` value from a 'member' name, like `"wzy"` or `"x"`.
     ///
     /// Use `name_span` for reporting errors in parsing the component string.
-    fn new(name: &str, name_span: Span) -> Result<Self, Error> {
+    fn new(name: &str, name_span: Span) -> Result<Self, Error<'_>> {
         let size = match name.len() {
             1 => return Ok(Components::Single(Self::single_component(name, name_span)?)),
             2 => crate::VectorSize::Bi,

@@ -191,13 +191,13 @@ impl RenderCommand {
                         },
 
                         RenderCommand::PushDebugGroup { color, len } => {
-                            ArcRenderCommand::PushDebugGroup { color, len }
+                            ArcRenderCommand::PushDebugGroup { _color: color, len }
                         }
 
                         RenderCommand::PopDebugGroup => ArcRenderCommand::PopDebugGroup,
 
                         RenderCommand::InsertDebugMarker { color, len } => {
-                            ArcRenderCommand::InsertDebugMarker { color, len }
+                            ArcRenderCommand::InsertDebugMarker { _color: color, len }
                         }
 
                         RenderCommand::WriteTimestamp {
@@ -474,13 +474,13 @@ pub enum ArcRenderCommand {
     },
     PushDebugGroup {
         #[cfg_attr(target_os = "emscripten", allow(dead_code))]
-        color: u32,
+        _color: u32,
         len: usize,
     },
     PopDebugGroup,
     InsertDebugMarker {
         #[cfg_attr(target_os = "emscripten", allow(dead_code))]
-        color: u32,
+        _color: u32,
         len: usize,
     },
     WriteTimestamp {

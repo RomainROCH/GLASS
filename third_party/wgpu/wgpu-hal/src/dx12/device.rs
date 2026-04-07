@@ -1113,9 +1113,7 @@ impl crate::Device for super::Device {
                 },
                 ShaderVisibility: Direct3D12::D3D12_SHADER_VISIBILITY_ALL, // really needed for VS and CS only,
             });
-            let binding = bind_cbv.clone();
-            bind_cbv.register += 1;
-            (Some(parameter_index as u32), Some(binding))
+            (Some(parameter_index as u32), Some(bind_cbv.clone()))
         } else {
             (None, None)
         };

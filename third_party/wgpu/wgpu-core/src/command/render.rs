@@ -1827,14 +1827,14 @@ impl Global {
                         )
                         .map_pass_err(scope)?;
                     }
-                    ArcRenderCommand::PushDebugGroup { color: _, len } => {
+                    ArcRenderCommand::PushDebugGroup { _color: _, len } => {
                         push_debug_group(&mut state, &base.string_data, len);
                     }
                     ArcRenderCommand::PopDebugGroup => {
                         let scope = PassErrorScope::PopDebugGroup;
                         pop_debug_group(&mut state).map_pass_err(scope)?;
                     }
-                    ArcRenderCommand::InsertDebugMarker { color: _, len } => {
+                    ArcRenderCommand::InsertDebugMarker { _color: _, len } => {
                         insert_debug_marker(&mut state, &base.string_data, len);
                     }
                     ArcRenderCommand::WriteTimestamp {
@@ -3244,7 +3244,7 @@ impl Global {
         base.string_data.extend_from_slice(bytes);
 
         base.commands.push(ArcRenderCommand::PushDebugGroup {
-            color,
+            _color: color,
             len: bytes.len(),
         });
 
@@ -3274,7 +3274,7 @@ impl Global {
         base.string_data.extend_from_slice(bytes);
 
         base.commands.push(ArcRenderCommand::InsertDebugMarker {
-            color,
+            _color: color,
             len: bytes.len(),
         });
 
