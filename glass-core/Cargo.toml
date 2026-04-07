@@ -9,3 +9,6 @@ gaming = []
 
 [dependencies]
 tracing = { workspace = true }
+
+[lints.rust]
+missing_docs = "warn"
