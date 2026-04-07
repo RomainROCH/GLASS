@@ -23,3 +23,8 @@ __pycache__/
 uv.lock
 .artifacts/
 CLAUDE.md
+
+# Local task/prompt artifacts
+prompt.md
+.tmp/
+
