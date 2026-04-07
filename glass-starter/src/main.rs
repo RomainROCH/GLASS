@@ -1,7 +1,10 @@
 //! GLASS Starter — reference implementation and starting point for custom GLASS overlays.
 //!
-//! Reference implementation and starting point for custom GLASS overlays.
-//! All core logic lives in `glass-overlay`; this binary is a bootstrap shim.
+//! This binary shows the intended consumer flow for a full GLASS application:
+//! create the overlay window, initialize DirectComposition + the renderer,
+//! register built-in modules, inject an external temperature callback for the
+//! system stats module, enter the message loop, then deinitialize modules on
+//! shutdown.
 //!
 //! Lifecycle:
 //! 1. Init tracing (+ Tracy if `tracy` feature)
@@ -11,22 +14,37 @@
 //! 5. Window + DComp + wgpu init
 //! 6. Layout manager + widget wrapper setup for built-in modules/widgets
 //! 7. Message loop (retained rendering + module ticks)
+//! 8. Clean shutdown via module deinit after the loop exits
 //!
 //! Input modes: passive (default) ↔ interactive (hotkey toggle).
 //! In test_mode builds, interactive mode is forcibly disabled.
 
 #[cfg(feature = "gaming")]
 use glass_overlay::GlassError;
+use glass_overlay::overlay_window;
+#[cfg(feature = "gaming")]
+use glass_overlay::safety::{AntiCheatDetector, DetectionPolicy};
 use glass_overlay::{
     ClockModule, Compositor, ConfigStore, FpsCounterModule, InputManager, LayoutManager, Renderer,
     SystemStatsModule, WidgetWrapper,
 };
-use glass_overlay::overlay_window;
-#[cfg(feature = "gaming")]
-use glass_overlay::safety::{AntiCheatDetector, DetectionPolicy};
-use tracing::{error, info};
 #[cfg(feature = "gaming")]
 use tracing::warn;
+use tracing::{error, info};
+
+/// Example external temperature callback used by the reference starter.
+///
+/// Replace this closure with your own hardware integration (for example:
+/// a vendor SDK, a sensor daemon, or a local IPC/HTTP endpoint). GLASS does
+/// not ship built-in temperature detection anymore; consumers inject it.
+fn example_temp_source() -> Box<dyn FnMut() -> Option<f32> + Send> {
+    Box::new(|| {
+        // Placeholder integration point:
+        // return `Some(temp_celsius)` when your app can read a temperature,
+        // or `None` when no reading is available yet.
+        None
+    })
+}
 
 fn main() {
     // ── Tracing / logging ────────────────────────────────────────────────
@@ -95,7 +113,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
         if result.has_warnings() {
             let names = result.warning_names().join(", ");
-            warn!("Anti-cheat self-check: user-mode AC detected ({names}) — proceeding with caution");
+            warn!(
+                "Anti-cheat self-check: user-mode AC detected ({names}) — proceeding with caution"
+            );
         }
 
         for det in &result.detections {
@@ -118,8 +138,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
         info!(
             "Input config: hotkey_vk=0x{:02X}, mods=0x{:X}, timeout={}ms, indicator={}",
-            cfg.input.hotkey_vk, cfg.input.hotkey_modifiers,
-            cfg.input.interactive_timeout_ms, cfg.input.show_indicator
+            cfg.input.hotkey_vk,
+            cfg.input.hotkey_modifiers,
+            cfg.input.interactive_timeout_ms,
+            cfg.input.show_indicator
         );
         info!(
             "Modules config: clock={}, stats={} ({}ms), fps={}",
@@ -131,7 +153,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         (cfg.input.clone(), cfg.modules.clone())
     };
 
-    // Start hot-reload watcher
+    // Start watching the config file so a consumer can later re-read and
+    // reapply settings after edits.
     config_store.watch()?;
 
     // ── Window creation ─────────────────────────────────────────────────
@@ -155,7 +178,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let dcomp = match Compositor::new(hwnd) {
         Ok(d) => d,
         Err(e) => {
-            let msg = format!("DirectComposition init failed: {e}\n\nDWM composition may be disabled.");
+            let msg =
+                format!("DirectComposition init failed: {e}\n\nDWM composition may be disabled.");
             error!("{msg}");
             overlay_window::show_error_dialog("GLASS — DComp Error", &msg);
             return Err(Box::new(e));
@@ -167,7 +191,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut renderer = match Renderer::new(dcomp.visual_handle(), hwnd) {
         Ok(r) => r,
         Err(e) => {
-            let msg = format!("GPU renderer init failed: {e}\n\nEnsure DX12-capable GPU drivers are installed.");
+            let msg = format!(
+                "GPU renderer init failed: {e}\n\nEnsure DX12-capable GPU drivers are installed."
+            );
             error!("{msg}");
             overlay_window::show_error_dialog("GLASS — Renderer Error", &msg);
             return Err(Box::new(e));
@@ -180,6 +206,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     info!("DComp committed");
 
     // ── Layout manager (anchor-based widget positioning) ────────────────
+    // The layout manager owns the module list and keeps each widget anchored
+    // to the configured screen position.
     let (screen_w, screen_h) = renderer.surface_dims();
     let mut layout_manager = LayoutManager::new(screen_w as f32, screen_h as f32);
 
@@ -189,19 +217,28 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         cfg.layout.clone()
     };
 
-    // Create widget wrappers with anchor-based positioning
+    // Build the clock module and place it with the configured anchor/margins.
     layout_manager.add_widget(WidgetWrapper::new(
         ClockModule::new(&modules_cfg.clock_format),
         layout_cfg.clock.anchor.clone(),
         layout_cfg.clock.margin_x,
         layout_cfg.clock.margin_y,
     ));
+
+    // Build the system stats module, then inject an external temperature
+    // callback. This starter intentionally uses a placeholder closure so the
+    // example stays honest: GLASS itself is sensor-library agnostic.
+    let mut system_stats = SystemStatsModule::new();
+    system_stats.set_temp_source(example_temp_source());
     layout_manager.add_widget(WidgetWrapper::new(
-        SystemStatsModule::new(),
+        system_stats,
         layout_cfg.system_stats.anchor.clone(),
         layout_cfg.system_stats.margin_x,
         layout_cfg.system_stats.margin_y,
     ));
+
+    // Add the FPS module so the reference app demonstrates multiple built-in
+    // modules sharing the same layout/message-loop infrastructure.
     layout_manager.add_widget(WidgetWrapper::new(
         FpsCounterModule::new(),
         layout_cfg.fps.anchor.clone(),
@@ -209,10 +246,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         layout_cfg.fps.margin_y,
     ));
 
-    // Apply module config (enable/disable per module settings)
+    // Apply enable/disable settings from config before initialization so the
+    // scene only contains widgets the user asked for.
     layout_manager.apply_config(&modules_cfg, renderer.scene_mut());
 
-    // Initialize enabled modules (adds scene nodes at computed positions)
+    // Initialize enabled modules. Each module adds its scene nodes here using
+    // the layout-computed position supplied by the wrapper.
     layout_manager.init_all(renderer.scene_mut());
 
     info!(
@@ -221,17 +260,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         layout_manager.list().iter().filter(|(_, e)| *e).count()
     );
 
-    // Input manager handles visual indicator lifecycle
+    // The input manager owns the passive/interactive indicator visuals.
     let mut input_manager = InputManager::new();
 
-    // Initial render
+    // Draw the initial retained scene before we start processing messages.
     renderer.render()?;
     info!("Initial frame rendered");
 
     // ── Message loop (retained + module ticks) ──────────────────────────
+    // This blocks until the user exits via the tray icon or the window is
+    // otherwise asked to quit.
     overlay_window::run_message_loop(&mut renderer, &mut input_manager, &mut layout_manager);
 
-    // Deinit modules before exit
+    // Clean shutdown: give every module a chance to remove its scene nodes and
+    // release any module-owned state before the process exits.
     layout_manager.deinit_all(renderer.scene_mut());
     info!("Modules deinitialized");
 

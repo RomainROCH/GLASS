@@ -1,21 +1,20 @@
 //! Minimal GLASS overlay bootstrap.
 //!
-//! Demonstrates the bare minimum to get a transparent, click-through
-//! DirectComposition overlay window running. No modules, no config,
-//! no layout — just a clear window you can draw into.
+//! Demonstrates the smallest honest integration against the current
+//! `glass-overlay` API: create the overlay window, initialize
+//! DirectComposition, set up the renderer, render once, run the message loop,
+//! and exit cleanly. It intentionally skips config loading and built-in modules.
 //!
 //! Run with:
 //! ```sh
 //! cargo run --example minimal -p glass-starter
 //! ```
 
-use glass_overlay::{Compositor, GlassError, InputManager, LayoutManager, Renderer};
 use glass_overlay::overlay_window;
+use glass_overlay::{Compositor, GlassError, InputManager, LayoutManager, Renderer};
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     match run() {
         Ok(()) => {}
@@ -27,19 +26,18 @@ fn main() {
 }
 
 fn run() -> Result<(), GlassError> {
-    // DPI awareness — must come before window creation
+    // Step 1: opt into PerMonitorAwareV2 DPI handling before creating a HWND.
     overlay_window::set_dpi_awareness();
 
-    // Create the overlay window (fullscreen, topmost, click-through).
-    // Pass zero for timeout/hotkey to disable interactive mode.
+    // Step 2: create the transparent overlay window. Passing zeroes disables
+    // the optional interactive-mode hotkey for this tiny example.
     let hwnd = overlay_window::create_overlay_window(0, 0, 0, "GLASS")
         .map_err(|e| GlassError::WindowCreation(e.to_string()))?;
 
-    // DirectComposition compositor
-    let dcomp = Compositor::new(hwnd)
-        .map_err(|e| GlassError::CompositionInit(e.to_string()))?;
+    // Step 3: create the DirectComposition objects that own the visual tree.
+    let dcomp = Compositor::new(hwnd).map_err(|e| GlassError::CompositionInit(e.to_string()))?;
 
-    // wgpu DX12 renderer
+    // Step 4: bind the renderer to the compositor visual and the overlay HWND.
     let mut renderer = Renderer::new(dcomp.visual_handle(), hwnd)
         .map_err(|e| GlassError::WgpuInit(e.to_string()))?;
     // Example: draw a triangle — replace with your own render logic
@@ -68,17 +66,19 @@ fn run() -> Result<(), GlassError> {
     // }
     // "#;
 
-    // Commit DComp (binds visual → swapchain)
+    // Step 5: commit the DirectComposition tree so the swapchain becomes visible.
     dcomp.commit()?;
 
-    // Render first frame
+    // Step 6: render the initial transparent frame.
     renderer.render()?;
 
-    // Run message loop (handles WM_QUIT, resize, tray icon exit)
+    // Step 7: create the minimal input/layout state required by the current
+    // message-loop API, then block until the overlay exits.
     let mut input_manager = InputManager::new();
     let (w, h) = renderer.surface_dims();
     let mut layout_manager = LayoutManager::new(w as f32, h as f32);
     overlay_window::run_message_loop(&mut renderer, &mut input_manager, &mut layout_manager);
 
+    // Step 8: returning cleanly hands control back to `main`, which reports success.
     Ok(())
 }
