@@ -1,8 +1,12 @@
-//! System stats module: CPU + memory usage with provenance labels.
+//! System stats module: CPU usage, memory usage, and optional external temperature.
 //!
-//! Uses the `sysinfo` crate for cross-platform metrics.
-//! All labels include "system:" prefix to indicate provenance.
-//! Gracefully degrades if metrics are unavailable.
+//! Uses the `sysinfo` crate for cross-platform CPU and RAM metrics.
+//! All labels carry a `"system:"` provenance prefix.
+//! Temperature is deliberately NOT sourced internally — callers inject a
+//! `TempSourceFn` callback via [`SystemStatsModule::set_temp_source`].
+//! When no source is injected, or the source returns `None`, the CPU line
+//! displays `"temp: N/A"` instead of a celsius value.
+//! Gracefully degrades if any metric is unavailable.
 
 use super::{ModuleInfo, OverlayModule, remove_nodes};
 use crate::scene::{Color, NodeId, Scene, SceneNode, TextProps};
@@ -19,11 +23,28 @@ const FONT_SIZE: f32 = 14.0;
 /// Default refresh interval.
 const DEFAULT_INTERVAL: Duration = Duration::from_secs(2);
 
+/// Optional external CPU temperature source.
+///
+/// The callback is invoked on every metrics refresh. Return `Some(celsius)`
+/// when a reading is available, or `None` to signal unavailability.
+/// The boxed closure is `Send` so the module can be moved across threads.
+type TempSourceFn = Box<dyn FnMut() -> Option<f32> + Send>;
+
 /// System stats overlay module.
+///
+/// Displays live CPU usage and RAM consumption as two overlay text nodes.
+/// CPU text format:
+/// - With temperature: `"system: CPU <pct>% · temp <celsius>°C"`
+/// - Without temperature: `"system: CPU <pct>% · temp: N/A"`
+///
+/// Inject a temperature provider with [`Self::set_temp_source`] after
+/// construction. GLASS itself has zero knowledge of hardware sensors.
 pub struct SystemStatsModule {
     enabled: bool,
     node_ids: Vec<NodeId>,
     sys: System,
+    /// Optional external CPU temperature callback.
+    temp_source: Option<TempSourceFn>,
     interval: Duration,
     last_update: Instant,
     last_cpu_text: String,
@@ -33,12 +54,16 @@ pub struct SystemStatsModule {
 }
 
 impl SystemStatsModule {
-    /// Create a new system stats module.
+    /// Create a new system stats module with no temperature source.
+    ///
+    /// Temperature will show as `"temp: N/A"` until a source is injected
+    /// via [`Self::set_temp_source`].
     pub fn new() -> Self {
         Self {
             enabled: true,
             node_ids: Vec::new(),
             sys: System::new(),
+            temp_source: None,
             interval: DEFAULT_INTERVAL,
             last_update: Instant::now() - DEFAULT_INTERVAL, // force immediate first update
             last_cpu_text: String::new(),
@@ -53,22 +78,32 @@ impl SystemStatsModule {
         self.interval = interval;
     }
 
+    /// Inject an external CPU temperature source.
+    ///
+    /// The callback is called on each metrics refresh. Return `Some(celsius)`
+    /// when a reading is available, `None` otherwise. Passing a new source
+    /// replaces any previously set one.
+    pub fn set_temp_source(&mut self, source: TempSourceFn) {
+        self.temp_source = Some(source);
+    }
+
     fn refresh_metrics(&mut self) -> (String, String) {
         self.sys.refresh_cpu_usage();
         self.sys.refresh_memory();
 
         let cpu_usage = self.sys.global_cpu_usage();
-        let cpu_text = format!("system: CPU {:.0}%", cpu_usage);
+        let temp_text = match &mut self.temp_source {
+            Some(f) => match f() {
+                Some(c) => format!("temp {:.0}°C", c),
+                None => "temp: N/A".to_string(),
+            },
+            None => "temp: N/A".to_string(),
+        };
+        let cpu_text = format!("system: CPU {:.0}% · {temp_text}", cpu_usage);
 
         let used_mem = self.sys.used_memory();
         let total_mem = self.sys.total_memory();
-        let mem_text = if total_mem > 0 {
-            let used_gib = used_mem as f64 / (1024.0 * 1024.0 * 1024.0);
-            let total_gib = total_mem as f64 / (1024.0 * 1024.0 * 1024.0);
-            format!("system: RAM {:.1}/{:.1} GiB", used_gib, total_gib)
-        } else {
-            "system: RAM N/A".to_string()
-        };
+        let mem_text = format_memory_text(used_mem, total_mem);
 
         (cpu_text, mem_text)
     }
@@ -77,6 +112,20 @@ impl SystemStatsModule {
 impl Default for SystemStatsModule {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Format a memory usage string from raw byte counts.
+///
+/// Returns `"system: RAM <used>/<total> GiB"` when total memory is non-zero,
+/// or `"system: RAM N/A"` when the system cannot report memory.
+fn format_memory_text(used_bytes: u64, total_bytes: u64) -> String {
+    if total_bytes > 0 {
+        let used_gib = used_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+        let total_gib = total_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+        format!("system: RAM {:.1}/{:.1} GiB", used_gib, total_gib)
+    } else {
+        "system: RAM N/A".to_string()
     }
 }
 
@@ -205,8 +254,18 @@ mod tests {
     fn stats_produces_labeled_text() {
         let mut module = SystemStatsModule::new();
         let (cpu, mem) = module.refresh_metrics();
-        assert!(cpu.starts_with("system: CPU "));
-        assert!(mem.starts_with("system: RAM "));
+        // No temp source injected — must show "temp: N/A"
+        assert!(cpu.starts_with("system: CPU "), "cpu text: {cpu}");
+        assert!(cpu.contains("temp: N/A"), "expected 'temp: N/A' in cpu text: {cpu}");
+        assert!(mem.starts_with("system: RAM "), "mem text: {mem}");
+    }
+
+    #[test]
+    fn stats_with_temp_source_shows_celsius() {
+        let mut module = SystemStatsModule::new();
+        module.set_temp_source(Box::new(|| Some(65.0)));
+        let (cpu, _mem) = module.refresh_metrics();
+        assert!(cpu.contains("temp 65°C"), "expected 'temp 65°C' in cpu text: {cpu}");
     }
 
     #[test]
