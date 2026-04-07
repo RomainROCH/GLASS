@@ -426,3 +426,178 @@ impl ConfigStore {
         Ok(())
     }
 }
+
+// ─── Tests ──────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_config (RON) ───────────────────────────────────────────────
+
+    #[test]
+    fn parse_empty_ron_struct_yields_defaults() {
+        // "()" is the RON representation of a struct with all default fields.
+        let cfg = parse_config("()", ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.opacity, default_opacity());
+        assert_eq!(cfg.position, Position::default());
+        assert_eq!(cfg.size, Size::default());
+    }
+
+    #[test]
+    fn parse_ron_explicit_opacity() {
+        let ron_str = "(opacity: 0.75)";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.opacity, 0.75);
+        // Other fields must still be defaults
+        assert_eq!(cfg.position, Position::default());
+    }
+
+    #[test]
+    fn parse_ron_explicit_position() {
+        let ron_str = "(position: (x: 50.0, y: 100.0))";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.position.x, 50.0);
+        assert_eq!(cfg.position.y, 100.0);
+    }
+
+    #[test]
+    fn malformed_ron_returns_error_not_panic() {
+        let result = parse_config("{ NOT VALID RON !!!", ConfigFormat::Ron);
+        assert!(result.is_err(), "malformed RON should return Err, not panic");
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("RON") || err_msg.contains("Config"),
+            "error message should indicate RON parse problem: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn malformed_toml_returns_error_not_panic() {
+        let result = parse_config("[[[[not toml", ConfigFormat::Toml);
+        assert!(result.is_err(), "malformed TOML should return Err");
+    }
+
+    // ── validate() ──────────────────────────────────────────────────────
+
+    #[test]
+    fn opacity_above_one_is_clamped_to_one() {
+        let ron_str = "(opacity: 1.5)";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.opacity, 1.0, "opacity 1.5 should be clamped to 1.0");
+    }
+
+    #[test]
+    fn negative_opacity_is_clamped_to_zero() {
+        let ron_str = "(opacity: -0.5)";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.opacity, 0.0, "negative opacity should be clamped to 0.0");
+    }
+
+    #[test]
+    fn zero_width_is_clamped_to_one() {
+        let ron_str = "(size: (width: 0.0, height: 200.0))";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.size.width, 1.0, "zero width should be clamped to 1.0");
+        assert_eq!(cfg.size.height, 200.0, "height should be unchanged");
+    }
+
+    #[test]
+    fn negative_height_is_clamped_to_one() {
+        let ron_str = "(size: (width: 300.0, height: -5.0))";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.size.height, 1.0, "negative height should be clamped to 1.0");
+    }
+
+    #[test]
+    fn valid_opacity_is_not_clamped() {
+        let ron_str = "(opacity: 0.0)";
+        let cfg = parse_config(ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(cfg.opacity, 0.0);
+    }
+
+    // ── RON round-trip ───────────────────────────────────────────────────
+
+    #[test]
+    fn overlay_config_ron_roundtrip() {
+        let original = OverlayConfig {
+            opacity: 0.8,
+            position: Position { x: 120.0, y: 80.0 },
+            size: Size {
+                width: 400.0,
+                height: 80.0,
+            },
+            ..OverlayConfig::default()
+        };
+        let ron_str =
+            ron::ser::to_string_pretty(&original, ron::ser::PrettyConfig::default()).unwrap();
+        let parsed = parse_config(&ron_str, ConfigFormat::Ron).unwrap();
+        assert_eq!(original, parsed, "round-trip should produce identical config");
+    }
+
+    // ── diff_summary ─────────────────────────────────────────────────────
+
+    #[test]
+    fn diff_summary_no_changes() {
+        let a = OverlayConfig::default();
+        let b = OverlayConfig::default();
+        assert_eq!(a.diff_summary(&b), "no changes");
+    }
+
+    #[test]
+    fn diff_summary_reports_opacity_change() {
+        let a = OverlayConfig::default();
+        let mut b = OverlayConfig::default();
+        b.opacity = 0.5;
+        let diff = a.diff_summary(&b);
+        assert!(diff.contains("opacity"), "diff should mention 'opacity': {diff}");
+    }
+
+    #[test]
+    fn diff_summary_reports_position_change() {
+        let a = OverlayConfig::default();
+        let mut b = OverlayConfig::default();
+        b.position.x = 999.0;
+        let diff = a.diff_summary(&b);
+        assert!(diff.contains("position"), "diff should mention 'position': {diff}");
+    }
+
+    #[test]
+    fn diff_summary_reports_size_change() {
+        let a = OverlayConfig::default();
+        let mut b = OverlayConfig::default();
+        b.size.width = 999.0;
+        let diff = a.diff_summary(&b);
+        assert!(diff.contains("size"), "diff should mention 'size': {diff}");
+    }
+
+    // ── detect_format ────────────────────────────────────────────────────
+
+    #[test]
+    fn detect_format_ron_extension() {
+        assert_eq!(
+            detect_format(std::path::Path::new("config.ron")).unwrap(),
+            ConfigFormat::Ron
+        );
+    }
+
+    #[test]
+    fn detect_format_toml_extension() {
+        assert_eq!(
+            detect_format(std::path::Path::new("overlay.toml")).unwrap(),
+            ConfigFormat::Toml
+        );
+    }
+
+    #[test]
+    fn detect_format_unknown_extension_returns_error() {
+        let result = detect_format(std::path::Path::new("config.yaml"));
+        assert!(result.is_err(), "unknown extension should return Err");
+    }
+
+    #[test]
+    fn detect_format_no_extension_returns_error() {
+        let result = detect_format(std::path::Path::new("config"));
+        assert!(result.is_err(), "missing extension should return Err");
+    }
+}

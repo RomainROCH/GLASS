@@ -286,4 +286,102 @@ mod tests {
         assert_eq!(scene.len(), 0);
         assert!(module.node_ids.is_empty());
     }
+
+    // ── temp_source edge cases ───────────────────────────────────────────
+
+    #[test]
+    fn temp_source_returning_none_shows_na() {
+        let mut module = SystemStatsModule::new();
+        module.set_temp_source(Box::new(|| None));
+        let (cpu, _) = module.refresh_metrics();
+        assert!(
+            cpu.contains("temp: N/A"),
+            "temp source returning None should show 'temp: N/A': {cpu}"
+        );
+    }
+
+    // ── memory formatting edge cases ─────────────────────────────────────
+
+    #[test]
+    fn memory_formatting_zero_total_shows_na() {
+        let text = format_memory_text(0, 0);
+        assert_eq!(
+            text, "system: RAM N/A",
+            "zero total memory should produce 'system: RAM N/A'"
+        );
+    }
+
+    #[test]
+    fn memory_formatting_exact_gib_values() {
+        // 8 GiB used, 16 GiB total
+        let used = 8u64 * 1024 * 1024 * 1024;
+        let total = 16u64 * 1024 * 1024 * 1024;
+        let text = format_memory_text(used, total);
+        assert!(
+            text.contains("8.0/16.0 GiB"),
+            "exact GiB values should format cleanly: {text}"
+        );
+        assert!(text.starts_with("system: RAM "), "must carry 'system: RAM' prefix: {text}");
+    }
+
+    #[test]
+    fn memory_formatting_zero_used_nonzero_total() {
+        let total = 4u64 * 1024 * 1024 * 1024;
+        let text = format_memory_text(0, total);
+        assert!(
+            text.contains("0.0/4.0 GiB"),
+            "zero used with nonzero total should format: {text}"
+        );
+    }
+
+    // ── enabled / set_enabled ────────────────────────────────────────────
+
+    #[test]
+    fn set_enabled_false_makes_enabled_return_false() {
+        let mut module = SystemStatsModule::new();
+        assert!(module.enabled(), "new module should be enabled by default");
+        module.set_enabled(false);
+        assert!(!module.enabled(), "set_enabled(false) should disable the module");
+    }
+
+    #[test]
+    fn set_enabled_true_reenables_module() {
+        let mut module = SystemStatsModule::new();
+        module.set_enabled(false);
+        module.set_enabled(true);
+        assert!(module.enabled(), "set_enabled(true) should re-enable the module");
+    }
+
+    // ── set_position ──────────────────────────────────────────────────────
+
+    #[test]
+    fn set_position_stores_base_coordinates() {
+        let mut module = SystemStatsModule::new();
+        module.set_position(42.0, 99.0);
+        assert_eq!(module.base_x, 42.0, "base_x must reflect set_position x");
+        assert_eq!(module.base_y, 99.0, "base_y must reflect set_position y");
+    }
+
+    // ── set_interval ─────────────────────────────────────────────────────
+
+    #[test]
+    fn set_interval_is_stored() {
+        let mut module = SystemStatsModule::new();
+        let new_interval = Duration::from_millis(500);
+        module.set_interval(new_interval);
+        assert_eq!(
+            module.interval, new_interval,
+            "set_interval should update the stored interval"
+        );
+    }
+
+    // ── content_size ─────────────────────────────────────────────────────
+
+    #[test]
+    fn content_size_is_nonzero() {
+        let module = SystemStatsModule::new();
+        let (w, h) = module.content_size();
+        assert!(w > 0.0, "content width must be positive");
+        assert!(h > 0.0, "content height must be positive");
+    }
 }

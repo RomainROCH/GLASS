@@ -430,4 +430,74 @@ mod tests {
         let parsed: ModulesConfig = ron::from_str(&ron_str).unwrap();
         assert_eq!(config, parsed);
     }
+
+    // ── remove_nodes helper ──────────────────────────────────────────────
+
+    #[test]
+    fn remove_nodes_clears_scene_and_drains_vec() {
+        let mut scene = Scene::new();
+        let mut ids: Vec<NodeId> = (0..3)
+            .map(|i| {
+                scene.add_text(crate::scene::TextProps {
+                    x: i as f32 * 10.0,
+                    y: 0.0,
+                    text: format!("node{i}"),
+                    font_size: 12.0,
+                    color: crate::scene::Color::WHITE,
+                })
+            })
+            .collect();
+
+        assert_eq!(scene.len(), 3, "precondition: 3 nodes in scene");
+        assert_eq!(ids.len(), 3, "precondition: 3 node IDs tracked");
+
+        remove_nodes(&mut scene, &mut ids);
+
+        assert!(ids.is_empty(), "ids vec must be drained after remove_nodes");
+        assert_eq!(scene.len(), 0, "all nodes must be removed from scene");
+    }
+
+    #[test]
+    fn remove_nodes_on_empty_vec_is_no_op() {
+        let mut scene = Scene::new();
+        scene.add_text(crate::scene::TextProps {
+            x: 0.0,
+            y: 0.0,
+            text: "kept".into(),
+            font_size: 12.0,
+            color: crate::scene::Color::WHITE,
+        });
+        let mut empty_ids: Vec<NodeId> = Vec::new();
+        remove_nodes(&mut scene, &mut empty_ids);
+        assert_eq!(scene.len(), 1, "unrelated scene node must not be removed");
+    }
+
+    // ── Built-in module ModuleInfo completeness ──────────────────────────
+
+    #[test]
+    fn builtin_modules_have_nonempty_info_fields() {
+        let modules: Vec<Box<dyn OverlayModule>> = vec![
+            Box::new(ClockModule::new("%H:%M:%S")),
+            Box::new(SystemStatsModule::new()),
+            Box::new(FpsCounterModule::new()),
+        ];
+        for module in &modules {
+            let info = module.info();
+            assert!(
+                !info.id.is_empty(),
+                "module id must not be empty (module: {})",
+                info.name
+            );
+            assert!(
+                !info.name.is_empty(),
+                "module name must not be empty (id: {})",
+                info.id
+            );
+            assert!(
+                !info.description.is_empty(),
+                "module description must not be empty (id: {})",
+                info.id
+            );
+        }
+    }
 }
