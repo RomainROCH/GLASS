@@ -863,4 +863,55 @@ mod tests {
             assert_eq!(anchor, parsed);
         }
     }
+
+    // ── apply_config integration ─────────────────────────────────────────
+
+    #[test]
+    fn apply_config_disables_module_by_id() {
+        let mut lm = LayoutManager::new(1920.0, 1080.0);
+        let mut scene = Scene::new();
+
+        // Register a module whose ID matches a key apply_config controls
+        let m = TestModule::new("clock", 150.0, 22.0);
+        lm.add_widget(WidgetWrapper::new(m, Anchor::TopLeft, 10.0, 10.0));
+        lm.init_all(&mut scene);
+        assert_eq!(scene.len(), 1, "clock module should have added one node");
+
+        // Disable clock via apply_config
+        let mut cfg = ModulesConfig::default();
+        cfg.clock_enabled = false;
+        lm.apply_config(&cfg, &mut scene);
+
+        assert_eq!(
+            scene.len(),
+            0,
+            "disabling clock via apply_config should remove its scene node"
+        );
+        assert_eq!(
+            lm.hit_test(15.0, 15.0),
+            None,
+            "disabled module must not be hit-testable"
+        );
+    }
+
+    #[test]
+    fn apply_config_enables_module_by_id() {
+        let mut lm = LayoutManager::new(1920.0, 1080.0);
+        let mut scene = Scene::new();
+
+        let mut m = TestModule::new("clock", 150.0, 22.0);
+        m.enabled = false; // Start disabled
+        lm.add_widget(WidgetWrapper::new(m, Anchor::TopLeft, 10.0, 10.0));
+        assert_eq!(scene.len(), 0, "disabled module must not add nodes before init");
+
+        // Enable clock via apply_config (clock_enabled defaults to true)
+        let cfg = ModulesConfig::default(); // clock_enabled = true
+        lm.apply_config(&cfg, &mut scene);
+
+        assert_eq!(
+            scene.len(),
+            1,
+            "enabling clock via apply_config should add its scene node"
+        );
+    }
 }

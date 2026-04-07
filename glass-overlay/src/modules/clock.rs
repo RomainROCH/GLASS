@@ -178,4 +178,42 @@ mod tests {
         // Should be YYYY-MM-DD format (10 chars)
         assert_eq!(text.len(), 10);
     }
+
+    // ── Edge cases ───────────────────────────────────────────────────────
+
+    #[test]
+    fn empty_format_string_does_not_panic() {
+        let clock = ClockModule::new("");
+        // chrono formats an empty string as an empty string — must not panic
+        let text = clock.current_time_text();
+        assert_eq!(text, "", "empty format should produce empty string, not panic");
+    }
+
+    #[test]
+    fn set_position_stores_base_coordinates() {
+        let mut clock = ClockModule::new("%H:%M");
+        clock.set_position(55.0, 120.0);
+        assert_eq!(clock.base_x, 55.0, "base_x should reflect set_position x");
+        assert_eq!(clock.base_y, 120.0, "base_y should reflect set_position y");
+    }
+
+    #[test]
+    fn set_format_clears_last_text_to_force_refresh() {
+        let mut clock = ClockModule::new("%H:%M");
+        // Simulate a previous render that cached some text
+        clock.last_text = "12:00".to_string();
+        clock.set_format("%S");
+        assert!(
+            clock.last_text.is_empty(),
+            "set_format should clear last_text to force a refresh on next update"
+        );
+    }
+
+    #[test]
+    fn content_size_is_nonzero() {
+        let clock = ClockModule::new("%H:%M:%S");
+        let (w, h) = clock.content_size();
+        assert!(w > 0.0, "content width must be positive");
+        assert!(h > 0.0, "content height must be positive");
+    }
 }

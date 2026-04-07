@@ -322,4 +322,121 @@ mod tests {
             assert!(!scene.is_dirty());
         }
     }
+
+    // ── NodeId uniqueness ────────────────────────────────────────────────
+
+    #[test]
+    fn node_ids_are_unique_across_multiple_adds() {
+        let mut scene = Scene::new();
+        let id1 = scene.add_text(TextProps {
+            x: 0.0,
+            y: 0.0,
+            text: "a".into(),
+            font_size: 12.0,
+            color: Color::WHITE,
+        });
+        let id2 = scene.add_text(TextProps {
+            x: 1.0,
+            y: 0.0,
+            text: "b".into(),
+            font_size: 12.0,
+            color: Color::WHITE,
+        });
+        let id3 = scene.add_rect(RectProps {
+            x: 0.0,
+            y: 0.0,
+            width: 10.0,
+            height: 10.0,
+            color: Color::BLACK,
+        });
+        assert_ne!(id1, id2, "consecutive text nodes must have distinct IDs");
+        assert_ne!(id2, id3, "text and rect nodes must have distinct IDs");
+        assert_ne!(id1, id3, "non-adjacent nodes must have distinct IDs");
+    }
+
+    // ── update return value ──────────────────────────────────────────────
+
+    #[test]
+    fn update_existing_node_returns_true() {
+        let mut scene = Scene::new();
+        let id = scene.add_text(TextProps {
+            x: 0.0,
+            y: 0.0,
+            text: "original".into(),
+            font_size: 12.0,
+            color: Color::WHITE,
+        });
+        let updated = scene.update(
+            id,
+            SceneNode::Text(TextProps {
+                x: 5.0,
+                y: 5.0,
+                text: "updated".into(),
+                font_size: 14.0,
+                color: Color::BLACK,
+            }),
+        );
+        assert!(updated, "update on existing node should return true");
+    }
+
+    #[test]
+    fn update_nonexistent_node_returns_false() {
+        let mut scene = Scene::new();
+        let fake_id = NodeId(999);
+        let result = scene.update(
+            fake_id,
+            SceneNode::Text(TextProps {
+                x: 0.0,
+                y: 0.0,
+                text: "ghost".into(),
+                font_size: 12.0,
+                color: Color::WHITE,
+            }),
+        );
+        assert!(!result, "update on nonexistent node should return false");
+        // Scene should remain empty and clean
+        assert!(scene.is_empty());
+    }
+
+    // ── empty-scene edge cases ───────────────────────────────────────────
+
+    #[test]
+    fn new_scene_is_empty_and_clean() {
+        let scene = Scene::new();
+        assert!(scene.is_empty());
+        assert_eq!(scene.len(), 0);
+        assert!(!scene.is_dirty(), "fresh scene must not be dirty");
+        assert_eq!(scene.iter().count(), 0);
+    }
+
+    #[test]
+    fn remove_on_empty_scene_returns_false() {
+        let mut scene = Scene::new();
+        assert!(!scene.remove(NodeId(0)), "remove on empty scene should return false");
+        assert!(scene.is_empty());
+    }
+
+    #[test]
+    fn remove_all_nodes_leaves_empty_scene() {
+        let mut scene = Scene::new();
+        let id1 = scene.add_text(TextProps {
+            x: 0.0,
+            y: 0.0,
+            text: "x".into(),
+            font_size: 12.0,
+            color: Color::WHITE,
+        });
+        let id2 = scene.add_rect(RectProps {
+            x: 0.0,
+            y: 0.0,
+            width: 5.0,
+            height: 5.0,
+            color: Color::BLACK,
+        });
+        assert_eq!(scene.len(), 2);
+        scene.remove(id1);
+        scene.remove(id2);
+        assert!(scene.is_empty(), "scene should be empty after removing all nodes");
+        assert_eq!(scene.len(), 0);
+    }
 }
