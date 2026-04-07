@@ -8,6 +8,13 @@
 //! Scene graph nodes and text are rendered via the [`TextEngine`] from
 //! [`crate::text_renderer`].
 
+// # Unsafe usage in this module
+//
+// - `Renderer::new` (GetClientRect): Win32 FFI — reads the window's client rectangle
+//   via a raw HWND; the result may be zeroed on error, handled by `.max(1)` guards.
+// - `Renderer::new` (create_surface_unsafe): wgpu FFI — binds a wgpu surface to a
+//   raw `IDCompositionVisual*`; the visual must remain valid for the surface lifetime.
+
 use glass_core::GlassError;
 use crate::hdr;
 use crate::scene::Scene;
@@ -66,13 +73,21 @@ impl Renderer {
     pub fn new(visual: NonNull<c_void>, hwnd: HWND) -> Result<Self, GlassError> {
         let _span = info_span!("renderer_init").entered();
 
-        let (width, height) = unsafe {
-            let mut rect = windows::Win32::Foundation::RECT::default();
-            let _ = GetClientRect(hwnd, &mut rect);
-            (
-                (rect.right - rect.left).max(1) as u32,
-                (rect.bottom - rect.top).max(1) as u32,
-            )
+        let (width, height) = {
+            // SAFETY: `hwnd` is the overlay window handle created by `create_overlay_window`
+            // and passed directly to this function without modification. `rect` is a
+            // zero-initialized local `RECT` on the stack — `GetClientRect` writes into it
+            // via a valid pointer. On failure (e.g. window not yet fully created), the RECT
+            // fields remain zero; the `.max(1)` guards below ensure the surface dimensions
+            // are never zero regardless.
+            unsafe {
+                let mut rect = windows::Win32::Foundation::RECT::default();
+                let _ = GetClientRect(hwnd, &mut rect);
+                (
+                    (rect.right - rect.left).max(1) as u32,
+                    (rect.bottom - rect.top).max(1) as u32,
+                )
+            }
         };
 
         info!("Initializing wgpu DX12 renderer at {width}x{height}");
@@ -82,7 +97,13 @@ impl Renderer {
             ..Default::default()
         });
 
-        // SAFETY: visual is a valid IDCompositionVisual pointer owned by Compositor.
+        // SAFETY: `visual` is a `NonNull<c_void>` pointing to a live `IDCompositionVisual`
+        // obtained from `Compositor::visual_handle`. The `NonNull` invariant guarantees the
+        // pointer is non-null. The `Compositor` is held by the caller for the duration of
+        // the application's lifetime, which must exceed the lifetime of this `Renderer`
+        // (and its enclosed `Surface<'static>`). `SurfaceTargetUnsafe::CompositionVisual`
+        // requires exactly this: a non-null `IDCompositionVisual*` that remains valid for
+        // as long as the surface exists.
         let surface = unsafe {
             instance
                 .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::CompositionVisual(

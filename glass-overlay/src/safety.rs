@@ -16,6 +16,18 @@
 //! - **Warn**: User-mode AC (EAC, BattlEye) → start with warning
 //! - **Info**: Informational (VAC) → log only
 
+// # Unsafe usage in this module
+//
+// - `win32_service_exists`: Win32 FFI — `OpenSCManagerW` and `OpenServiceW` are
+//   read-only service-control calls; handles are closed with `CloseServiceHandle`
+//   before the function returns. Wide-string pointers are derived from `Vec<u16>`
+//   locals that outlive the calls.
+// - `win32_process_running`: Win32 FFI — `CreateToolhelp32Snapshot` takes a
+//   process snapshot (passive; does not open any target process). `Process32FirstW`/
+//   `Process32NextW` read into a stack-allocated `PROCESSENTRY32W` with `dwSize`
+//   pre-set to the struct's actual size. The snapshot handle is always closed before
+//   returning, on both success and failure paths.
+
 use std::path::Path;
 use tracing::{info, warn, error};
 
@@ -24,10 +36,15 @@ use tracing::{info, warn, error};
 /// Known anti-cheat systems.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AntiCheatSystem {
+    /// Riot Vanguard — kernel-level anti-cheat used by Valorant and other Riot titles.
     Vanguard,
+    /// RICOCHET — kernel-level anti-cheat used by Activision's Call of Duty titles.
     Ricochet,
+    /// Easy Anti-Cheat — user-mode anti-cheat used by Epic Games and many other titles.
     EasyAntiCheat,
+    /// BattlEye — user-mode anti-cheat used by a wide range of multiplayer games.
     BattlEye,
+    /// Valve Anti-Cheat — heuristic detection based on a running Steam process.
     VAC,
 }
 
@@ -57,14 +74,18 @@ pub enum DetectionPolicy {
 /// A single detection result.
 #[derive(Debug, Clone)]
 pub struct Detection {
+    /// The anti-cheat system that was detected.
     pub system: AntiCheatSystem,
+    /// Policy decision for this detection (Block, Warn, or Info).
     pub policy: DetectionPolicy,
+    /// Detection method used: `"service"`, `"driver"`, or `"process"`.
     pub method: &'static str,
 }
 
 /// Complete scan result.
 #[derive(Debug, Clone)]
 pub struct ScanResult {
+    /// All anti-cheat systems detected during the scan.
     pub detections: Vec<Detection>,
 }
 
@@ -193,6 +214,13 @@ fn win32_service_exists(name: &str) -> bool {
     use windows::Win32::System::Services::*;
     use windows::core::PCWSTR;
 
+    // SAFETY: `OpenSCManagerW(PCWSTR::null(), PCWSTR::null(), ...)` opens the local
+    // machine's active SCM database; passing null for machine and database names is
+    // explicitly documented to mean "local machine / active database" — no pointer is
+    // dereferenced from these nulls. `wide` is a null-terminated `Vec<u16>` kept alive
+    // for the entire block; `PCWSTR(wide.as_ptr())` is valid while `wide` is in scope.
+    // Both handles obtained via `Ok(...)` are closed via `CloseServiceHandle` before
+    // the function returns, preventing handle leaks on all code paths.
     unsafe {
         let scm = OpenSCManagerW(PCWSTR::null(), PCWSTR::null(), SC_MANAGER_ENUMERATE_SERVICE);
         let scm = match scm {
@@ -223,6 +251,14 @@ fn win32_service_exists(name: &str) -> bool {
 fn win32_process_running(name: &str) -> bool {
     use windows::Win32::System::Diagnostics::ToolHelp::*;
 
+    // SAFETY: `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)` takes a snapshot of
+    // all running processes — it does not open a handle to any individual process, so
+    // it cannot interfere with AC kernel drivers. `PROCESSENTRY32W` is initialized with
+    // `dwSize` set to its exact `sizeof` (required by the API) and all other fields
+    // zeroed via `Default::default()`. `Process32FirstW`/`Process32NextW` read entries
+    // from the immutable snapshot — no process memory is accessed. `CloseHandle` is
+    // called on the snapshot on all exit paths (early return and normal loop exit),
+    // preventing handle leaks.
     unsafe {
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         let snapshot = match snapshot {
