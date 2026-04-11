@@ -17,7 +17,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        features: ["", "test_mode", "alloc-tracking"]
+        features: ["", "test_mode"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -133,8 +133,5 @@ jobs:
       - name: Check tracy
         run: cargo check --workspace --features tracy
 
-      - name: Check alloc-tracking
-        run: cargo check --workspace --features alloc-tracking
-
       - name: Check all features combined
-        run: cargo check --workspace --features "test_mode,tracy,alloc-tracking"
+        run: cargo check --workspace --features "test_mode,tracy"

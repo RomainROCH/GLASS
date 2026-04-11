@@ -28,6 +28,4 @@ ci:
 	cargo test --workspace --no-fail-fast
 	@echo "=== Feature gate: tracy ==="
 	cargo check --workspace --features tracy
-	@echo "=== Feature gate: alloc-tracking ==="
-	cargo check --workspace --features alloc-tracking
 	@echo "=== CI passed ==="

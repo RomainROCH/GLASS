@@ -27,8 +27,8 @@ Summary of recent changes (relevant to genericity)
     WSL2 setup and the default build target (`x86_64-pc-windows-msvc`).
 - `config.ron` augmented with `modules` and `layout` sections and inline
   documentation so configuration is complete and self-describing.
-- `alloc_tracker.rs` is preserved but annotated with `#![allow(dead_code)]`
-  so the default build is warning-clean.
+- `alloc_tracker.rs` was removed; the `alloc-tracking` Cargo feature and CI
+  references have been cleaned up accordingly.
 - `README.md`, `CLAUDE.md` and CI workflows updated to reflect the new
   paradigm and to document the WSL2 build/compatibility steps.
 
