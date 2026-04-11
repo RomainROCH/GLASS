@@ -44,6 +44,7 @@ cargo run --example minimal -p glass-starter
 - [`docs/getting-started.md`](docs/getting-started.md) — first run
 - [`docs/library-consumer.md`](docs/library-consumer.md) — build your own app with GLASS
 - [`docs/module-authoring.md`](docs/module-authoring.md) — write a custom module
+- [`docs/architecture/ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) — system architecture & decisions
 
 ## Architecture
 
@@ -52,6 +53,8 @@ The workspace is split into three main crates:
 - `glass-core` — shared core types, including `GlassError`
 - `glass-overlay` — the reusable overlay library: config, layout, scene graph, modules, windowing, compositor, renderer
 - `glass-starter` — the reference application and smallest runnable examples
+
+📐 **[Full architecture documentation →](docs/architecture/ARCHITECTURE.md)** — system design, layer breakdown, key decisions, ecosystem vision, and extension points.
 
 If you want to study the current reference flow, start with:
 
